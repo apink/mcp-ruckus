@@ -1,0 +1,45 @@
+**.pyc
+**.pyo
+**.pyd
+__pycache__/
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment and secrets
+.env
+.env.local
+inventory/devices.yaml
+backups/
+
+# Dev tools
+.venv/
+venv/
+venv.bak/
+.tox/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docs (built artifacts)
+docs/_build/
+
+# Logs
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Test
+tmp-data/
+*.test.txt

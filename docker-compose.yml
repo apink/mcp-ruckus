@@ -1,0 +1,31 @@
+services:
+  ruckus-mcp:
+    build: .
+    container_name: ruckus-mcp-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - MCP_TRANSPORT=sse
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+      - TZ=${TZ:-Asia/Jakarta}
+    volumes:
+      # Mount .env for credentials
+      - ./inventory/devices.yaml:/app/inventory/devices.yaml:ro
+      - ./.env:/app/.env:ro
+      # Persistent config backups (restore-ready)
+      - ./backups:/app/backups
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.connect(('localhost',8000)); s.close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

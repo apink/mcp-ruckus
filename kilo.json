@@ -1,0 +1,20 @@
+{
+  "permission": {
+    "read": {
+      ".env": "deny",
+      ".env.*": "deny"
+    },
+    "glob": {
+      ".env": "deny",
+      ".env.*": "deny"
+    },
+    "grep": {
+      ".env": "deny",
+      ".env.*": "deny"
+    },
+    "edit": {
+      ".env": "deny",
+      ".env.*": "deny"
+    }
+  }
+}
