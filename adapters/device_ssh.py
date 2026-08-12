@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
+import threading
 import time
 from typing import Any
 
@@ -10,7 +12,7 @@ from netmiko import ConnectHandler
 from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
 from paramiko.ssh_exception import SSHException
 
-from models.ruckus import DeviceCredentials, ICXDevice
+from models.ruckus import ICXDevice
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,9 @@ logger = logging.getLogger(__name__)
 
 PORT_RE = re.compile(r"^\d+/\d+/\d+$")
 MAC_DOT_RE = re.compile(r"^[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}$")
-MAC_COLON_RE = re.compile(r"^[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}$")
+MAC_COLON_RE = re.compile(
+    r"^[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}$"
+)
 IPV4_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 IPV6_RE = re.compile(r"^[0-9a-fA-F:]+$")
 ROUTE_DEST_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}(/\d{1,2})?$")
@@ -98,42 +102,128 @@ def _validate_route_dest_ipv6(dest: str) -> str:
     return dest
 
 
+def _parse_vlan_spec(vlan_spec: str) -> list[int]:
+    """Parse VLAN spec to list of VLAN IDs.
+
+    Supports: single ('200'), range ('210 to 213'),
+    multi ('200 210 220'), mixed ('16 17 20 to 24').
+    """
+    tokens = vlan_spec.strip().split()
+    if not tokens:
+        raise ValueError(f"Empty VLAN spec: {vlan_spec!r}")
+    vlan_ids: list[int] = []
+    i = 0
+    while i < len(tokens):
+        part = tokens[i]
+        if part == "to" and vlan_ids and i + 1 < len(tokens):
+            start = vlan_ids.pop()
+            end = int(tokens[i + 1])
+            if start >= end:
+                raise ValueError(f"Invalid VLAN range: {start} to {end}")
+            if not (1 <= start <= 4094) or not (1 <= end <= 4094):
+                raise ValueError(f"VLAN range out of bounds (1-4094): {start} to {end}")
+            vlan_ids.extend(range(start, end + 1))
+            i += 1
+        else:
+            try:
+                vlan_id = int(part)
+                if not (1 <= vlan_id <= 4094):
+                    raise ValueError(f"VLAN out of bounds (1-4094): {vlan_id}")
+                vlan_ids.append(vlan_id)
+            except ValueError:
+                raise ValueError(f"Invalid VLAN spec token: {part!r}")
+        i += 1
+    if not vlan_ids:
+        raise ValueError(f"Empty VLAN spec: {vlan_spec!r}")
+    return vlan_ids
+
+
+def _validate_ports_spec(ports_spec: str) -> str:
+    """Validate port list specification for ICX commands.
+
+    Checks that every non-keyword token matches port format (x/y/z).
+    Keywords: 'to', 'ethernet'.
+    """
+    if not ports_spec.strip():
+        return ""
+    for token in ports_spec.strip().split():
+        if token.lower() in ("to", "ethernet"):
+            continue
+        _validate_port(token)
+    return ports_spec
+
+
 class RuckusDeviceDriver:
     CAPABILITIES = ["ssh"]
+    _semaphores: dict[str, threading.BoundedSemaphore] = {}
+    _default_ssh_limit = 5
+
+    @classmethod
+    def _get_semaphore(cls, host: str) -> threading.BoundedSemaphore:
+        if host not in cls._semaphores:
+            limit = int(os.environ.get("ICX_RATE_LIMIT", cls._default_ssh_limit))
+            cls._semaphores[host] = threading.BoundedSemaphore(limit)
+        return cls._semaphores[host]
 
     def __init__(self, device: ICXDevice) -> None:
         self.device = device
         self.host = device.host
         self.name = device.name
-        self.credentials = DeviceCredentials("RUCKUS_ICX")
+        self.username = device.username
+        self.password = device.password
 
     def _connect(self) -> ConnectHandler:
-        if not self.credentials.is_available():
-            raise ValueError("missing RUCKUS_ICX credentials in .env")
+        if not self.username or not self.password:
+            raise ValueError(
+                "missing ICX credentials — set username/password in devices.yaml"
+            )
 
-        # Retry logic for transient SSH errors
+        sem = self._get_semaphore(self.host)
+        acquired = sem.acquire(blocking=False)
+        if not acquired:
+            raise RuntimeError(
+                f"ICX_RATE_LIMIT reached for {self.host} — "
+                f"all {sem._initial_value} SSH slots in use, retry later"
+            )
+
         last_exc = None
         max_retries = 2
         backoff = 1.5
 
-        for attempt in range(max_retries + 1):
-            try:
-                return ConnectHandler(
-                    device_type="ruckus_fastiron",
-                    host=self.host,
-                    username=self.credentials.username,
-                    password=self.credentials.password,
-                    timeout=10,
-                )
-            except (NetmikoTimeoutException, SSHException) as exc:
-                last_exc = exc
-                if attempt < max_retries:
-                    logger.warning(f"SSH attempt {attempt+1}/{max_retries+1} failed for {self.host}: {exc}, retrying...")
-                    time.sleep(backoff ** attempt)
-                else:
-                    raise
+        try:
+            for attempt in range(max_retries + 1):
+                try:
+                    conn = ConnectHandler(
+                        device_type="ruckus_fastiron",
+                        host=self.host,
+                        username=self.username,
+                        password=self.password,
+                        timeout=15,
+                        global_delay_factor=2,
+                        session_log='session.log',
+                    )
+                    _orig_disconnect = conn.disconnect
 
-        raise last_exc
+                    def _wrapped_disconnect():
+                        _orig_disconnect()
+                        sem.release()
+
+                    conn.disconnect = _wrapped_disconnect
+                    return conn
+                except (NetmikoTimeoutException, SSHException) as exc:
+                    last_exc = exc
+                    if attempt < max_retries:
+                        logger.warning(
+                            "SSH attempt %d/%d failed for %s: %s, retrying...",
+                            attempt + 1, max_retries + 1, self.host, exc,
+                        )
+                        time.sleep(backoff ** attempt)
+                    else:
+                        raise
+            raise last_exc
+        except Exception:
+            sem.release()
+            raise
 
     @staticmethod
     def _normalize(value: str | None) -> str | None:
@@ -168,27 +258,30 @@ class RuckusDeviceDriver:
     def get_interfaces_summary(self) -> list[dict[str, Any]]:
         try:
             with self._connect() as conn:
-                output = conn.send_command("show interface brief", read_timeout=20)
+                output = conn.send_command("show interface brief wide", read_timeout=20)
             interfaces: list[dict[str, Any]] = []
             for line in output.splitlines():
                 parts = line.strip().split()
-                if len(parts) < 6:
+                if len(parts) < 9:
                     continue
                 port = parts[0]
-                if not re.match(r"^\d+/\d+/\d+$|^mgmt\d+$|^ve\d+$", port):
+                if not re.match(r"^\d+/\d+/\d+$|^mgmt\d+$|^ve\d+$|^lg\d+$", port):
                     continue
                 link = parts[1]
-                description = " ".join(parts[10:]).strip() if len(parts) > 10 else None
                 status = "down" if link.lower() in ("down", "disable") else link.lower()
+                name = " ".join(parts[10:]).strip() if len(parts) > 10 else ""
                 interfaces.append({
-                    "name": port,
-                    "ip_address": "unassigned",
-                    "status": status,
-                    "protocol": "down" if status == "down" else "up",
-                    "speed": self._normalize(parts[4] if len(parts) > 4 else None),
-                    "duplex": self._normalize(parts[3] if len(parts) > 3 else None),
-                    "state": self._normalize(parts[2] if len(parts) > 2 else None),
-                    "description": self._normalize(description),
+                    "port": port,
+                    "link": status,
+                    "state": self._normalize(parts[2]),
+                    "duplex": self._normalize(parts[3]),
+                    "speed": self._normalize(parts[4]),
+                    "trunk": self._normalize(parts[5]),
+                    "tag": self._normalize(parts[6]),
+                    "pvid": parts[7],
+                    "priority": parts[8] if parts[8].isdigit() else self._normalize(parts[8]),
+                    "mac": parts[9] if len(parts) > 9 else "",
+                    "description": name,
                 })
             return interfaces
         except NetmikoTimeoutException:
@@ -198,7 +291,7 @@ class RuckusDeviceDriver:
 
     def get_interfaces_down(self) -> list[dict[str, Any]]:
         return [i for i in self.get_interfaces_summary()
-                if isinstance(i, dict) and i.get("status") == "down" and "error" not in i]
+                if isinstance(i, dict) and i.get("link") == "down" and "error" not in i]
 
     def get_interfaces_errors(self) -> list[dict[str, Any]]:
         ports = [i["name"] for i in self.get_interfaces_summary()
@@ -239,11 +332,15 @@ class RuckusDeviceDriver:
                     crc = int(m.group(1)) if (m := re.search(r"(\d+)\s+CRC", output)) else 0
 
                     rate_in = re.search(
-                        r"(\d+) second input rate:\s*(\d+)\s+bits/sec,\s*(\d+)\s+packets/sec,\s*([\d.]+)%\s+utilization",
-                        output)
+                        r"(\d+) second input rate:\s*(\d+)\s+bits/sec,\s*(\d+)"
+                        r"\s+packets/sec,\s*([\d.]+)%\s+utilization",
+                        output,
+                    )
                     rate_out = re.search(
-                        r"(\d+) second output rate:\s*(\d+)\s+bits/sec,\s*(\d+)\s+packets/sec,\s*([\d.]+)%\s+utilization",
-                        output)
+                        r"(\d+) second output rate:\s*(\d+)\s+bits/sec,\s*(\d+)"
+                        r"\s+packets/sec,\s*([\d.]+)%\s+utilization",
+                        output,
+                    )
                     pkts_in = re.search(r"(\d+)\s+packets input,\s*(\d+)\s+bytes", output)
                     pkts_out = re.search(r"(\d+)\s+packets output,\s*(\d+)\s+bytes", output)
                     bcast_in = re.search(r"Received\s+(\d+)\s+broadcasts,\s*(\d+)\s+multicasts", output)
@@ -637,6 +734,618 @@ class RuckusDeviceDriver:
         except Exception as exc:
             return {"host": self.host, "error": str(exc)}
 
+    def get_lldp_neighbors(self) -> list[dict[str, Any]]:
+        try:
+            with self._connect() as conn:
+                output = conn.send_command("show lldp neighbors", read_timeout=15)
+            results: list[dict[str, Any]] = []
+            in_table = False
+            for line in output.splitlines():
+                line_s = line.strip()
+                if not line_s:
+                    continue
+                if line_s.startswith("Lcl Port") or line_s.startswith("---"):
+                    in_table = True
+                    continue
+                if not in_table:
+                    continue
+                parts = re.split(r"\s+", line_s)
+                if len(parts) < 5:
+                    continue
+                results.append({
+                    "local_port": parts[0],
+                    "chassis_id": parts[1],
+                    "port_id": parts[2],
+                    "port_description": " ".join(parts[3:-1]) if len(parts) > 5 else parts[3],
+                    "system_name": parts[-1],
+                })
+            return results
+        except NetmikoTimeoutException:
+            return [{"host": self.host, "error": "timeout"}]
+        except Exception as exc:
+            return [{"host": self.host, "error": str(exc)}]
+
+    def get_poe_status(self) -> dict[str, Any]:
+        try:
+            with self._connect() as conn:
+                output = conn.send_command("show inline power", read_timeout=15)
+            result: dict[str, Any] = {"host": self.host, "ports": []}
+            in_table = False
+
+            cap_m = re.search(r"Total is (\d+) mWatts", output)
+            free_m = re.search(r"Current Free is (\d+) mWatts", output)
+            req_m = re.search(r"Requests Honored (\d+)", output)
+
+            if cap_m:
+                result["power_capacity_mw"] = int(cap_m.group(1))
+            if free_m:
+                result["power_free_mw"] = int(free_m.group(1))
+            if req_m:
+                result["requests_honored"] = int(req_m.group(1))
+
+            for line in output.splitlines():
+                line_s = line.strip()
+                if not line_s:
+                    continue
+                if line_s.startswith("Port") and "Admin" in line_s:
+                    in_table = True
+                    continue
+                if line_s.startswith("---") or line_s.startswith("==="):
+                    continue
+                if not in_table:
+                    continue
+                if line_s.startswith("Total"):
+                    break
+
+                parts = re.split(r"\s+", line_s)
+                if len(parts) < 8:
+                    continue
+                if not re.match(r"^\d+/\d+/\d+$", parts[0]):
+                    continue
+
+                result["ports"].append({
+                    "port": parts[0],
+                    "admin_state": parts[1],
+                    "oper_state": parts[2],
+                    "power_consumed_mw": int(parts[3]) if parts[3].isdigit() else 0,
+                    "power_allocated_mw": int(parts[4]) if parts[4].isdigit() else 0,
+                    "pd_type": parts[5],
+                    "pd_class": parts[6],
+                    "priority": parts[7],
+                })
+            if "power_capacity_mw" not in result:
+                result["note"] = "PoE not supported or not detected on this switch"
+            return result
+        except NetmikoTimeoutException:
+            return {"host": self.host, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+
+    def get_sfp_info(self, port: str | None = None) -> list[dict[str, Any]]:
+        try:
+            with self._connect() as conn:
+                if port:
+                    _validate_port(port)
+                    cmd = f"show media ethernet {port}"
+                else:
+                    cmd = "show media"
+                output = conn.send_command(cmd, read_timeout=15)
+            results: list[dict[str, Any]] = []
+            for match in re.finditer(
+                r"Port\s+(\S+):\s+Type\s*:\s*(.+?)(?:\n|$)",
+                output,
+            ):
+                port_name = match.group(1)
+                port_type = match.group(2).strip()
+                results.append({
+                    "port": port_name,
+                    "type": port_type,
+                })
+            if port and not results:
+                return [{"host": self.host, "port": port, "error": "port_not_found_or_no_sfp"}]
+            return results
+        except NetmikoTimeoutException:
+            return [{"host": self.host, "error": "timeout"}]
+        except Exception as exc:
+            return [{"host": self.host, "error": str(exc)}]
+
+    def get_cable_diag(self, port: str) -> dict[str, Any]:
+        _validate_port(port)
+        try:
+            with self._connect() as conn:
+                output = conn.send_command(
+                    f"show cable-diag tdr {port}",
+                    read_timeout=30,
+                )
+            result: dict[str, Any] = {"host": self.host, "port": port, "pairs": []}
+            if "No TDR" in output:
+                result["note"] = "TDR not supported on this port (fiber or disabled)"
+                return result
+
+            for line in output.splitlines():
+                line_s = line.strip()
+                if not line_s or line_s.startswith("Port") or line_s.startswith("----"):
+                    continue
+                m = re.match(
+                    r"(?:1/\d+/\d+\s+(?:\d+G\s*)?)?"
+                    r"Pair\s+(\S+)\s+Pair\s+(\S+)\s+(\S+)",
+                    line_s,
+                )
+                if not m:
+                    continue
+                result["pairs"].append({
+                    "local_pair": m.group(1),
+                    "remote_pair": m.group(2),
+                    "pair_status": m.group(3),
+                })
+            return result
+        except NetmikoTimeoutException:
+            return {"host": self.host, "port": port, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "port": port, "error": str(exc)}
+
+    def get_syslog(self, lines: int = 50, severity: str = "",
+                   dedup: bool = True) -> dict[str, Any]:
+        """Token-optimized syslog: parsed, deduplicated, severity-filtered."""
+        lines = max(1, min(lines, 500))
+        try:
+            with self._connect() as conn:
+                output = conn.send_command("show log", read_timeout=35)
+            entries: list[dict[str, Any]] = []
+            seen = output.split("Dynamic Log Buffer")
+            raw = seen[-1] if len(seen) > 1 else output
+            log_lines = raw.strip().splitlines()
+            log_lines = [ln for ln in log_lines if ln.strip()
+                         and not ln.strip().startswith("Syslog")
+                         and not ln.strip().startswith("Buffer")
+                         and not ln.strip().startswith("level")
+                         and not ln.strip().startswith("Static")
+                         and not ln.strip().startswith("(")]
+
+            if severity:
+                severity_set = set(severity.upper())
+            else:
+                severity_set = set()
+
+            last_msg = ""
+            last_entry: dict[str, Any] | None = None
+
+            for line in log_lines:
+                line_s = line.strip()
+                m = re.match(
+                    r"(\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2}):(\w):([^:]+):?(.*)$",
+                    line_s,
+                )
+                if not m:
+                    continue
+                sev = m.group(2)
+                if severity_set and sev not in severity_set:
+                    continue
+                msg = m.group(4).strip() if m.group(4) else ""
+                entry = {
+                    "timestamp": f"{m.group(1)}",
+                    "severity": sev,
+                    "facility": m.group(3).strip(),
+                    "message": msg,
+                }
+                if dedup and last_entry and msg == last_msg:
+                    if "count" not in last_entry:
+                        last_entry["timestamp"] = f"{last_entry['timestamp']} (first)"
+                        last_entry["count"] = 2
+                    else:
+                        last_entry["count"] += 1
+                    last_entry["last_ts"] = entry["timestamp"]
+                    continue
+                entries.append(entry)
+                last_msg = msg
+                last_entry = entry
+
+            total = len(entries)
+            entries = entries[-lines:]
+            return {
+                "host": self.host,
+                "returned": len(entries),
+                "total": total,
+                "severity_filter": severity or "all",
+                "entries": entries,
+            }
+        except NetmikoTimeoutException:
+            return {"host": self.host, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+
+    def get_optic_info(self, port: str) -> dict[str, Any]:
+        _validate_port(port)
+        try:
+            with self._connect() as conn:
+                dm = conn.send_command(f"show optic {port}", read_timeout=12)
+                thresh = conn.send_command(
+                    f"show optic thresholds {port}", read_timeout=12)
+            result: dict[str, Any] = {"host": self.host, "port": port}
+            if "not enabled" in dm.lower() and "not enabled" in thresh.lower():
+                result["note"] = "Optical monitoring not enabled"
+                return result
+            self._parse_optic_dom(result, dm, port)
+            self._parse_optic_thresholds(result, thresh)
+            return result
+        except NetmikoTimeoutException:
+            return {"host": self.host, "port": port, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "port": port, "error": str(exc)}
+
+    @staticmethod
+    def _parse_optic_dom(result: dict[str, Any], output: str, port: str) -> None:
+        for line in output.splitlines():
+            line_s = line.strip()
+            if not line_s.startswith(port):
+                continue
+            parts = re.findall(r"(-?\d+\.\d+)\s+(\S+)", line_s)
+            if len(parts) >= 5:
+                for i, (val, unit) in enumerate(parts[:5]):
+                    name = ["temperature", "voltage", "tx_power",
+                            "rx_power", "tx_bias"][i]
+                    result[name] = float(val)
+                    result[f"{name}_unit"] = unit
+                break
+
+    @staticmethod
+    def _parse_optic_thresholds(result: dict[str, Any], output: str) -> None:
+        patterns = {
+            "temperature": r"Temperature\s+(High|Low)\s+(alarm|warning)\s+\S+\s+(-?[\d.]+)\s+\S",
+            "voltage": r"Supply Voltage\s+(High|Low)\s+(alarm|warning)\s+\S+\s+(-?[\d.]+)\s+\S",
+            "tx_bias": r"TX Bias\s+(High|Low)\s+(alarm|warning)\s+\S+\s+(-?[\d.]+)\s+\S",
+            "tx_power": r"TX Power\s+(High|Low)\s+(alarm|warning)\s+\S+\s+(-?[\d.]+)\s+\S",
+            "rx_power": r"RX Power\s+(High|Low)\s+(alarm|warning)\s+\S+\s+(-?[\d.]+)\s+\S",
+        }
+        thresholds: dict[str, dict[str, float]] = {}
+        for field, pattern in patterns.items():
+            for m in re.finditer(pattern, output, re.IGNORECASE):
+                severity = f"{m.group(1).lower()}_{m.group(2).lower()}"
+                thresholds.setdefault(field, {})[severity] = float(m.group(3))
+        if thresholds:
+            result["thresholds"] = thresholds
+
+    def get_device_time(self) -> dict[str, Any]:
+        try:
+            with self._connect() as conn:
+                clk = conn.send_command("show clock", read_timeout=10, expect_string=r"#")
+                ntp = conn.send_command("show ntp status", read_timeout=10, expect_string=r"#")
+                peers = conn.send_command("show ntp associations", read_timeout=10, expect_string=r"#")
+            result: dict[str, Any] = {"host": self.host}
+
+            m = re.search(r"(\d{2}:\d{2}:\d{2}\.\d+)\s+(\S+)\s+(\w{3})\s+(\w{3})\s+(\d{2})\s+(\d{4})", clk)
+            if m:
+                result["current_time"] = (
+                    f"{m.group(3)} {m.group(4)} {m.group(5)} {m.group(6)} "
+                    f"{m.group(1)} {m.group(2)}"
+                )
+
+            if "unsynchronized" in ntp.lower():
+                result["ntp_synced"] = False
+                result["ntp_status"] = "unsynchronized — no reference clock"
+            elif "synchronized" in ntp.lower():
+                result["ntp_synced"] = True
+
+            ntp_parts = ntp.strip().split("\n")
+            for line in ntp_parts:
+                if "server mode" in line.lower():
+                    result["ntp_server_enabled"] = "enabled" in line.lower() and "dis" not in line.lower()
+                if "client mode" in line.lower():
+                    result["ntp_client_enabled"] = "enabled" in line.lower() and "dis" not in line.lower()
+                if "master mode" in line.lower():
+                    result["ntp_master_enabled"] = "enabled" in line.lower() and "dis" not in line.lower()
+                if "panic mode" in line.lower():
+                    result["ntp_in_panic"] = "not in panic" not in line.lower()
+
+            peer_list: list[dict[str, Any]] = []
+            for line in peers.splitlines():
+                line_s = line.strip()
+                if not line_s or line_s.startswith("address") or line_s.startswith("* synced"):
+                    continue
+                parts = re.split(r"\s+", line_s)
+                if len(parts) >= 11:
+                    peer_list.append({
+                        "address": parts[1] if parts[0] == "~" else parts[0],
+                        "ref_clock": parts[3] if len(parts) > 3 else "",
+                        "stratum": parts[4] if len(parts) > 4 else "",
+                        "reachable": parts[7] != "0" if len(parts) > 7 else False,
+                        "delay": parts[8] if len(parts) > 8 else "",
+                        "offset": parts[9] if len(parts) > 9 else "",
+                    })
+            result["ntp_peers"] = peer_list
+
+            return result
+        except NetmikoTimeoutException:
+            return {"host": self.host, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+
+    def get_spanning_tree(self, vlan: str | None = None) -> dict[str, Any]:
+        try:
+            with self._connect() as conn:
+                cmd = f"show span vlan {vlan}" if vlan else "show span"
+                output = conn.send_command(cmd, read_timeout=15)
+            result: dict[str, Any] = {"host": self.host, "ports": []}
+
+            if "not configured" in output:
+                m = re.search(r"port-vlan (\d+)", output)
+                result["stp_configured"] = False
+                result["vlan"] = int(m.group(1)) if m else None
+                return result
+
+            result["stp_configured"] = True
+
+            m = re.search(
+                r"(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\S+)",
+                output,
+            )
+            if m:
+                result["vlan"] = int(m.group(1))
+                result["root_id"] = m.group(2)
+                result["root_cost"] = int(m.group(3))
+                result["root_port"] = m.group(4)
+                result["bridge_priority"] = m.group(5)
+                result["bridge_address"] = m.group(6)
+
+            for line in output.splitlines():
+                line_s = line.strip()
+                m = re.match(
+                    r"(\d+/\d+/\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)",
+                    line_s,
+                )
+                if not m:
+                    continue
+                result["ports"].append({
+                    "port": m.group(1),
+                    "priority": m.group(2),
+                    "path_cost": int(m.group(3)) if m.group(3).isdigit() else m.group(3),
+                    "state": m.group(4),
+                    "fwd_transitions": int(m.group(5)) if m.group(5).isdigit() else 0,
+                    "designated_cost": m.group(6),
+                    "designated_root": m.group(7),
+                    "designated_bridge": m.group(8),
+                })
+
+            return result
+        except NetmikoTimeoutException:
+            return {"host": self.host, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+
+    def get_access_lists(self, name: str | None = None, brief: bool = False) -> dict[str, Any]:
+        try:
+            with self._connect() as conn:
+                if brief:
+                    cmd = "show ip access-list brief"
+                elif name:
+                    cmd = f"show ip access-list {name}"
+                else:
+                    cmd = "show ip access-list"
+                output = conn.send_command(cmd, read_timeout=12)
+            result: dict[str, Any] = {"host": self.host, "acls": []}
+
+            if "Incomplete" in output or "Invalid" in output:
+                return {"host": self.host, "error": "command_not_supported"}
+
+            if brief:
+                for line in output.splitlines():
+                    m = re.match(r"(Standard|Extended) IP access list (\S+): (\d+) entries", line)
+                    if m:
+                        result["acls"].append({
+                            "type": m.group(1),
+                            "name": m.group(2),
+                            "entries": int(m.group(3)),
+                        })
+                return result
+
+            current = None
+            for line in output.splitlines():
+                line_s = line.strip()
+                m = re.match(r"(Standard|Extended) IP access list (\S+): (\d+) entries", line_s)
+                if m:
+                    current = {
+                        "type": m.group(1),
+                        "name": m.group(2),
+                        "entries": int(m.group(3)),
+                        "rules": [],
+                    }
+                    result["acls"].append(current)
+                    continue
+                if current and name and current["name"] != name:
+                    continue
+                r = re.match(r"(\d+):\s+(permit|deny)\s+(.+)$", line_s)
+                if r and current:
+                    current["rules"].append({
+                        "sequence": int(r.group(1)),
+                        "action": r.group(2),
+                        "match": r.group(3).strip(),
+                    })
+
+            if not result["acls"]:
+                result["note"] = "No IP ACLs configured"
+            return result
+        except NetmikoTimeoutException:
+            return {"host": self.host, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+
+    def get_device_resources(self) -> dict[str, Any]:
+        try:
+            with self._connect() as conn:
+                cpu_out = conn.send_command("show cpu", read_timeout=15)
+                mem_out = conn.send_command("show memory", read_timeout=15)
+            result: dict[str, Any] = {"host": self.host, "cpus": []}
+
+            for match in re.finditer(
+                r"cpu(\d+):[\s\S]*?300\s+sec avg:\s*(\d+) percent busy",
+                cpu_out, re.IGNORECASE,
+            ):
+                result["cpus"].append({
+                    "cpu_id": int(match.group(1)),
+                    "pct_busy_1sec": 0,
+                    "pct_busy_5sec": 0,
+                    "pct_busy_60sec": 0,
+                    "pct_busy_300sec": int(match.group(2)),
+                })
+            for sec, field in [("1", "pct_busy_1sec"), ("5", "pct_busy_5sec"), ("60", "pct_busy_60sec")]:
+                values = re.findall(
+                    rf"cpu(\d+):[\s\S]*?{sec}\s+sec avg:\s*(\d+) percent busy",
+                    cpu_out, re.IGNORECASE,
+                )
+                for cpu_id_str, val in values:
+                    cpu_id = int(cpu_id_str)
+                    for cpu in result["cpus"]:
+                        if cpu["cpu_id"] == cpu_id:
+                            cpu[field] = int(val)
+
+            mem_total = re.search(r"Total DRAM:\s*(\d+)\s*bytes", mem_out)
+            mem_free = re.search(r"Dynamic memory:.*?(\d+)\s*bytes free", mem_out)
+            mem_pct = re.search(r"(\d+)%\s*used", mem_out)
+
+            if mem_total and mem_free:
+                result["memory_total_bytes"] = int(mem_total.group(1))
+                result["memory_free_bytes"] = int(mem_free.group(1))
+                result["memory_used_bytes"] = result["memory_total_bytes"] - result["memory_free_bytes"]
+                result["memory_used_pct"] = round(
+                    result["memory_used_bytes"] / result["memory_total_bytes"] * 100, 1,
+                )
+            elif mem_total and mem_pct:
+                result["memory_total_bytes"] = int(mem_total.group(1))
+                result["memory_used_pct"] = int(mem_pct.group(1))
+            return result
+        except NetmikoTimeoutException:
+            return {"host": self.host, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+
+    def get_arp_table(self) -> list[dict[str, Any]]:
+        try:
+            with self._connect() as conn:
+                output = conn.send_command("show arp", read_timeout=15)
+            results: list[dict[str, Any]] = []
+            in_table = False
+            for line in output.splitlines():
+                line_s = line.strip()
+                if not line_s:
+                    continue
+                if line_s.startswith("No.") and "IP Address" in line_s:
+                    in_table = True
+                    continue
+                if not in_table:
+                    continue
+                if re.match(r"^\d+\s+", line_s):
+                    parts = re.split(r"\s+", line_s)
+                    if len(parts) >= 6:
+                        results.append({
+                            "ip": parts[1],
+                            "mac": parts[2],
+                            "type": parts[3],
+                            "age": int(parts[4]) if parts[4].isdigit() else 0,
+                            "port": parts[5],
+                            "status": parts[6] if len(parts) > 6 else "",
+                        })
+            return results
+        except NetmikoTimeoutException:
+            return [{"host": self.host, "error": "timeout"}]
+        except Exception as exc:
+            return [{"host": self.host, "error": str(exc)}]
+
+    def get_users(self) -> list[dict[str, Any]]:
+        try:
+            with self._connect() as conn:
+                output = conn.send_command("show users", read_timeout=15)
+            results: list[dict[str, Any]] = []
+            in_table = False
+            for line in output.splitlines():
+                line_s = line.strip()
+                if not line_s:
+                    continue
+                if "Username" in line_s and "Password" in line_s:
+                    in_table = True
+                    continue
+                if line_s.startswith("==="):
+                    continue
+                if not in_table:
+                    continue
+                parts = re.split(r"\s+", line_s)
+                if len(parts) < 5:
+                    continue
+                results.append({
+                    "username": parts[0],
+                    "encrypt": parts[2] if len(parts) > 2 else "",
+                    "privilege": parts[3] if len(parts) > 3 else "",
+                    "status": parts[4] if len(parts) > 4 else "",
+                    "expire_time": parts[5] if len(parts) > 5 else "",
+                })
+            return results
+        except NetmikoTimeoutException:
+            return [{"host": self.host, "error": "timeout"}]
+        except Exception as exc:
+            return [{"host": self.host, "error": str(exc)}]
+
+    def get_ssh_status(self) -> dict[str, Any]:
+        try:
+            with self._connect() as conn:
+                output = conn.send_command("show ip ssh", read_timeout=15)
+            result: dict[str, Any] = {"host": self.host, "sessions": []}
+
+            server = re.search(
+                r"SSH-(v\d+(?:\.\d+)?)\s+(\w+)", output, re.IGNORECASE
+            )
+            if server:
+                result["ssh_version"] = server.group(1)
+                result["ssh_enabled"] = server.group(2).lower() == "enabled"
+            hostkey = re.search(r"hostkey:\s*(.+)", output, re.IGNORECASE)
+            if hostkey:
+                result["host_key"] = hostkey.group(1).strip()
+
+            section = "unknown"
+            in_header = False
+            for line in output.splitlines():
+                line_s = line.strip()
+                if not line_s:
+                    continue
+                if line_s.lower().startswith("inbound"):
+                    section = "inbound"
+                    in_header = True
+                    continue
+                if line_s.lower().startswith("outbound"):
+                    section = "outbound"
+                    in_header = True
+                    continue
+                if in_header and "Connection" in line_s and "Version" in line_s:
+                    in_header = False
+                    continue
+                if in_header:
+                    in_header = False
+                if section not in ("inbound", "outbound"):
+                    continue
+                if line_s.startswith("SSH-"):
+                    continue
+                parts = re.split(r"\s+", line_s)
+                if len(parts) < 3:
+                    continue
+                if not parts[0].isdigit():
+                    continue
+                result["sessions"].append({
+                    "direction": section,
+                    "connection": int(parts[0]),
+                    "version": parts[1],
+                    "encryption": parts[2],
+                    "username": parts[3] if len(parts) > 3 else "",
+                    "hmac": parts[4] if len(parts) > 4 else "",
+                    "server_hostkey": parts[5] if len(parts) > 5 else "",
+                    "source_ip": parts[6] if len(parts) > 6 else "",
+                })
+
+            if "ssh_enabled" not in result:
+                result["note"] = "no parseable SSH server info"
+            return result
+        except NetmikoTimeoutException:
+            return {"host": self.host, "error": "timeout"}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+
     def get_ipv6_interfaces(self) -> list[dict[str, Any]]:
         try:
             with self._connect() as conn:
@@ -873,6 +1582,317 @@ class RuckusDeviceDriver:
             return float(value)
         except (ValueError, TypeError):
             return None
+
+    def set_port_state(
+        self, port: str, enable: bool, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        _validate_port(port)
+        state = "enabled" if enable else "disabled"
+        commands = [
+            "configure terminal",
+            f"interface ethernet {port}",
+            "enable" if enable else "disable",
+            "end",
+        ]
+        if dry_run:
+            return {"host": self.host, "port": port, "dry_run": True,
+                    "state": state, "commands": commands}
+        logger.info(
+            "set_port_state: host=%s port=%s %s", self.host, port, state,
+        )
+        try:
+            with self._connect() as conn:
+                conn.send_command_timing(
+                    "configure terminal", delay_factor=2, read_timeout=10,
+                )
+                conn.send_command_timing(
+                    f"interface ethernet {port}", delay_factor=2, read_timeout=10,
+                )
+                conn.send_command_timing(
+                    "enable" if enable else "disable",
+                    delay_factor=2, read_timeout=10,
+                )
+                conn.send_command_timing("end", delay_factor=2, read_timeout=10)
+            return {"host": self.host, "port": port, "state": state}
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "port": port, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "port": port, "error": str(exc)}
+
+    # ── VLAN Tools ────────────────────────────────────────────────
+
+    def create_vlan(
+        self,
+        vlan_spec: str,
+        name: str | None = None,
+        tagged_ports: str = "",
+        untagged_ports: str = "",
+        spanning_tree: bool = False,
+        stp_priority: int | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        vlan_ids = _parse_vlan_spec(vlan_spec)
+        _validate_ports_spec(tagged_ports)
+        _validate_ports_spec(untagged_ports)
+        is_single = len(vlan_ids) == 1
+        if name and not is_single:
+            raise ValueError("VLAN name only supported for single VLAN, not range/multi")
+        if stp_priority is not None and not is_single:
+            raise ValueError("STP priority only supported for single VLAN")
+
+        cmd_vlan = f"vlan {vlan_spec}"
+        if name:
+            cmd_vlan += f" name {name}"
+        commands = ["configure terminal", cmd_vlan]
+        if untagged_ports:
+            commands.append(f"untagged {untagged_ports}")
+        if tagged_ports:
+            commands.append(f"tagged {tagged_ports}")
+        if spanning_tree:
+            if is_single:
+                commands.append("spanning-tree")
+                if stp_priority is not None:
+                    commands.append(f"spanning-tree priority {stp_priority}")
+            else:
+                commands.append("spanning-tree 802-1w")
+        commands.append("end")
+
+        if dry_run:
+            return {"host": self.host, "vlan_spec": vlan_spec,
+                    "dry_run": True, "vlan_ids": vlan_ids, "commands": commands}
+
+        logger.info(
+            "create_vlan: host=%s spec=%s name=%s tagged=%s untagged=%s stp=%s",
+            self.host, vlan_spec, name, tagged_ports, untagged_ports, spanning_tree,
+        )
+        try:
+            with self._connect() as conn:
+                for cmd in commands:
+                    conn.send_command_timing(
+                        cmd, delay_factor=2, read_timeout=10,
+                    )
+            return {
+                "host": self.host, "vlan_spec": vlan_spec,
+                "vlan_ids": vlan_ids, "created": True,
+            }
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "vlan_spec": vlan_spec, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "vlan_spec": vlan_spec, "error": str(exc)}
+
+    def delete_vlan(
+        self, vlan_spec: str, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        vlan_ids = _parse_vlan_spec(vlan_spec)
+        commands = [
+            "configure terminal",
+            f"no vlan {vlan_spec}",
+            "end",
+        ]
+        if dry_run:
+            return {"host": self.host, "vlan_spec": vlan_spec,
+                    "dry_run": True, "vlan_ids": vlan_ids, "commands": commands}
+        logger.info("delete_vlan: host=%s spec=%s", self.host, vlan_spec)
+        try:
+            with self._connect() as conn:
+                for cmd in commands:
+                    conn.send_command_timing(
+                        cmd, delay_factor=2, read_timeout=10,
+                    )
+            return {
+                "host": self.host, "vlan_spec": vlan_spec,
+                "vlan_ids": vlan_ids, "deleted": True,
+            }
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "vlan_spec": vlan_spec, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "vlan_spec": vlan_spec, "error": str(exc)}
+
+    def modify_vlan_port(
+        self, port: str, vlan_spec: str, action: str, tagged: bool = True,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        _validate_port(port)
+        vlan_ids = _parse_vlan_spec(vlan_spec)
+        if action not in ("add", "remove"):
+            raise ValueError(f"Invalid action: {action!r} (expected 'add' or 'remove')")
+
+        commands: list[str] = []
+        commands.append("configure terminal")
+        if action == "add":
+            if tagged:
+                commands.append(f"interface ethernet {port}")
+                commands.append(f"vlan-config add tagged-vlan {vlan_spec}")
+                commands.append("exit")
+            else:
+                for vlan_id in vlan_ids:
+                    commands.append(f"vlan {vlan_id}")
+                    commands.append(f"untagged ethernet {port}")
+                    commands.append("exit")
+        else:
+            for vlan_id in vlan_ids:
+                commands.append(f"vlan {vlan_id}")
+                prefix = "tagged" if tagged else "untagged"
+                commands.append(f"no {prefix} ethernet {port}")
+                commands.append("exit")
+        commands.append("end")
+
+        if dry_run:
+            return {"host": self.host, "port": port, "action": action,
+                    "dry_run": True, "vlan_ids": vlan_ids, "commands": commands}
+        logger.info(
+            "modify_vlan_port: host=%s port=%s action=%s spec=%s tagged=%s",
+            self.host, port, action, vlan_spec, tagged,
+        )
+        try:
+            with self._connect() as conn:
+                for cmd in commands:
+                    conn.send_command_timing(
+                        cmd, delay_factor=2, read_timeout=20 if "vlan-config" in cmd else 10,
+                    )
+            return {
+                "host": self.host, "port": port, "action": action,
+                "vlan_spec": vlan_spec, "vlan_ids": vlan_ids, "success": True,
+            }
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "port": port, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "port": port, "error": str(exc)}
+
+    def set_poe_port(
+        self,
+        port: str,
+        enable: bool,
+        priority: int | None = None,
+        power_limit: int | None = None,
+        power_by_class: int | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Enable/disable PoE with optional priority, power-limit, or power-by-class."""
+        _validate_port(port)
+        if priority is not None and priority not in (1, 2, 3):
+            raise ValueError(f"Invalid priority {priority} (must be 1=critical, 2=high, 3=low)")
+        if power_by_class is not None:
+            if not enable:
+                raise ValueError("power_by_class only valid when enable=True")
+            if not (0 <= power_by_class <= 8):
+                raise ValueError(f"Invalid power class {power_by_class} (must be 0-8)")
+        if power_limit is not None:
+            if not enable:
+                raise ValueError("power_limit only valid when enable=True")
+            if power_limit <= 0:
+                raise ValueError(f"Invalid power_limit {power_limit} (must be > 0)")
+
+        if (power_limit is not None or power_by_class is not None) and priority is None:
+            raise ValueError(
+                "priority is required when setting power_limit or power_by_class "
+                "(ICX syntax requires priority first)"
+            )
+
+        # Build inline power command
+        if not enable:
+            power_cmd = "no inline power"
+            action = "disable"
+        elif priority is not None:
+            parts = [f"inline power priority {priority}"]
+            if power_by_class is not None:
+                parts.append(f"power-by-class {power_by_class}")
+            elif power_limit is not None:
+                parts.append(f"power-limit {power_limit}")
+            power_cmd = " ".join(parts)
+            action = "enable"
+        else:
+            power_cmd = "inline power"
+            action = "enable"
+
+        commands = [
+            "configure terminal",
+            f"interface ethernet {port}",
+            power_cmd,
+            "end",
+        ]
+        if dry_run:
+            return {"host": self.host, "port": port, "dry_run": True,
+                    "action": action, "command": power_cmd, "commands": commands}
+        logger.info(
+            "set_poe_port: host=%s port=%s cmd=%s", self.host, port, power_cmd,
+        )
+        try:
+            with self._connect() as conn:
+                for cmd in commands:
+                    conn.send_command_timing(
+                        cmd, delay_factor=2, read_timeout=10,
+                    )
+            result: dict[str, Any] = {"host": self.host, "port": port,
+                                       "action": action, "success": True}
+            if priority is not None:
+                result["priority"] = priority
+            if power_limit is not None:
+                result["power_limit_mw"] = power_limit
+            if power_by_class is not None:
+                result["power_by_class"] = power_by_class
+            return result
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "port": port, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "port": port, "error": str(exc)}
+
+    def get_poe_status(
+        self, port: str | None = None,
+    ) -> dict[str, Any]:
+        capacity_re = re.compile(r"Total is (\d+) mWatts.*?Free is (\d+) mWatts")
+        # port admin oper consumed allocated pd_type pd_class pri fault
+        port_re = re.compile(
+            r"^\s*(\d+/\d+/\d+)\s+(On|Off)\s+(On|Off|Non-PD)\s+"
+            r"(\d+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\d+)\s*(.*?)$",
+        )
+        logger.info("get_poe_status: host=%s port=%s", self.host, port)
+        try:
+            with self._connect() as conn:
+                raw = conn.send_command("show inline power", read_timeout=20)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+
+        cap = capacity_re.search(raw)
+        total_mw = int(cap.group(1)) if cap else None
+        free_mw = int(cap.group(2)) if cap else None
+
+        ports: list[dict[str, Any]] = []
+        for line in raw.splitlines():
+            m = port_re.match(line)
+            if not m:
+                continue
+            entry = {
+                "port": m.group(1),
+                "admin_state": m.group(2),
+                "oper_state": m.group(3),
+                "power_consumed_mw": int(m.group(4)),
+                "power_allocated_mw": int(m.group(5)),
+                "pd_type": m.group(6),
+                "pd_class": m.group(7),
+                "priority": int(m.group(8)),
+                "fault": m.group(9).strip() or None,
+            }
+            if port and entry["port"] != port:
+                continue
+            ports.append(entry)
+
+        result: dict[str, Any] = {
+            "host": self.host,
+            "power_capacity_total_mw": total_mw,
+            "power_capacity_free_mw": free_mw,
+        }
+        if port:
+            result["port"] = port
+            if ports:
+                result["status"] = ports[0]
+            else:
+                result["status"] = None
+        else:
+            result["ports"] = ports
+        return result
 
     @staticmethod
     def _search(pattern: str, text: str, flags: int = 0) -> str:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -27,6 +28,9 @@ class VsZRestAdapter:
         self._logged_in = False
         self._domain_id: str | None = None
         self._token_failed = False
+        rate_limit = int(os.getenv("VSZ_RATE_LIMIT", "10"))
+        self._semaphore = asyncio.Semaphore(rate_limit)
+        logger.info("vSZ rate limit: %d concurrent requests", rate_limit)
         self._client: httpx.AsyncClient = httpx.AsyncClient(
             verify=False,
             timeout=httpx.Timeout(self.config.timeout, connect=10.0),
@@ -89,54 +93,55 @@ class VsZRestAdapter:
 
     async def _request(self, path: str, method: str = "GET", payload: dict | None = None,
                        params: dict | None = None) -> dict[str, Any]:
-        if not self._service_ticket or (time.time() - self._login_time >= self.SESSION_TTL):
-            await self._ensure_login()
-        if not self._service_ticket:
-            return {"error": "not_authenticated"}
-
-        url = f"{self.base_url}{self.api_path}{path}?serviceTicket={self._service_ticket}"
-        if params:
-            for k, v in params.items():
-                if v:
-                    url += f"&{k}={v}"
-        try:
-            if method == "POST":
-                resp = await self._client.post(
-                    url, json=payload,
-                    headers={"Content-Type": "application/json"},
-                )
-            elif method == "DELETE":
-                resp = await self._client.delete(
-                    url,
-                    headers={"Content-Type": "application/json"},
-                )
-            elif method in ("PUT", "PATCH"):
-                resp = await self._client.request(
-                    method, url, json=payload,
-                    headers={"Content-Type": "application/json"},
-                )
-            else:
-                resp = await self._client.get(
-                    url,
-                    headers={"Content-Type": "application/json"},
-                )
-            resp.raise_for_status()
-            return resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 401 and self.config.api_token and not self._token_failed:
-                self._token_failed = True
-                self._service_ticket = None
+        async with self._semaphore:
+            if not self._service_ticket or (time.time() - self._login_time >= self.SESSION_TTL):
                 await self._ensure_login()
-                if self._service_ticket:
-                    return await self._request(path, method=method, payload=payload, params=params)
-            logger.error(f"vSZ API {method} {path} HTTP error {exc.response.status_code}: {exc.response.text[:200]}")
-            return {"error": f"http_{exc.response.status_code}", "detail": str(exc.response.text)}
-        except httpx.HTTPError as exc:
-            logger.error(f"vSZ API {method} {path} network error: {exc}")
-            return {"error": "network_error", "detail": str(exc)}
-        except Exception as exc:
-            logger.error(f"vSZ API {method} {path} unexpected error: {exc}")
-            return {"error": "unexpected_error", "detail": str(exc)}
+            if not self._service_ticket:
+                return {"error": "not_authenticated"}
+
+            url = f"{self.base_url}{self.api_path}{path}?serviceTicket={self._service_ticket}"
+            if params:
+                for k, v in params.items():
+                    if v:
+                        url += f"&{k}={v}"
+            try:
+                if method == "POST":
+                    resp = await self._client.post(
+                        url, json=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+                elif method == "DELETE":
+                    resp = await self._client.delete(
+                        url,
+                        headers={"Content-Type": "application/json"},
+                    )
+                elif method in ("PUT", "PATCH"):
+                    resp = await self._client.request(
+                        method, url, json=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+                else:
+                    resp = await self._client.get(
+                        url,
+                        headers={"Content-Type": "application/json"},
+                    )
+                resp.raise_for_status()
+                return resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 401 and self.config.api_token and not self._token_failed:
+                    self._token_failed = True
+                    self._service_ticket = None
+                    await self._ensure_login()
+                    if self._service_ticket:
+                        return await self._request(path, method=method, payload=payload, params=params)
+                logger.error(f"vSZ API {method} {path} HTTP error {exc.response.status_code}: {exc.response.text[:200]}")
+                return {"error": f"http_{exc.response.status_code}", "detail": str(exc.response.text)}
+            except httpx.HTTPError as exc:
+                logger.error(f"vSZ API {method} {path} network error: {exc}")
+                return {"error": "network_error", "detail": str(exc)}
+            except Exception as exc:
+                logger.error(f"vSZ API {method} {path} unexpected error: {exc}")
+                return {"error": "unexpected_error", "detail": str(exc)}
 
     # ── Domain Tools ──────────────────────────────────
 

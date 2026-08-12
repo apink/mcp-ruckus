@@ -253,6 +253,215 @@ def _device_config_diff(host: str, config_type: str = "running") -> dict[str, An
     }
 
 
+def _device_lldp_neighbors(host: str) -> list[dict[str, Any]]:
+    logger.info("device_lldp_neighbors: host=%s", host)
+    device = get_device_record(host)
+    if not device:
+        return [{"host": host, "error": "device_not_found"}]
+    driver = RuckusDeviceDriver(device)
+    return driver.get_lldp_neighbors()
+
+
+def _device_poe_status(host: str) -> dict[str, Any]:
+    logger.info("device_poe_status: host=%s", host)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_poe_status()
+
+
+def _device_arp_table(host: str) -> list[dict[str, Any]]:
+    logger.info("device_arp_table: host=%s", host)
+    device = get_device_record(host)
+    if not device:
+        return [{"host": host, "error": "device_not_found"}]
+    driver = RuckusDeviceDriver(device)
+    return driver.get_arp_table()
+
+
+def _device_resources(host: str) -> dict[str, Any]:
+    logger.info("device_resources: host=%s", host)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_device_resources()
+
+
+def _device_sfp_info(host: str, port: str | None = None) -> list[dict[str, Any]]:
+    logger.info("device_sfp_info: host=%s port=%s", host, port)
+    device = get_device_record(host)
+    if not device:
+        return [{"host": host, "error": "device_not_found"}]
+    driver = RuckusDeviceDriver(device)
+    return driver.get_sfp_info(port)
+
+
+def _device_cable_diag(host: str, port: str) -> dict[str, Any]:
+    logger.info("device_cable_diag: host=%s port=%s", host, port)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "port": port, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_cable_diag(port)
+
+
+def _device_syslog(host: str, lines: int = 50, severity: str = "", dedup: bool = True) -> dict[str, Any]:
+    logger.info("device_syslog: host=%s lines=%s severity=%s dedup=%s", host, lines, severity, dedup)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_syslog(lines=lines, severity=severity, dedup=dedup)
+
+
+def _device_optic_info(host: str, port: str) -> dict[str, Any]:
+    logger.info("device_optic_info: host=%s port=%s", host, port)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "port": port, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_optic_info(port)
+
+
+def _device_time(host: str) -> dict[str, Any]:
+    logger.info("device_time: host=%s", host)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_device_time()
+
+
+def _device_spanning_tree(host: str, vlan: str | None = None) -> dict[str, Any]:
+    logger.info("device_spanning_tree: host=%s vlan=%s", host, vlan)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_spanning_tree(vlan)
+
+
+def _device_access_lists(host: str, name: str | None = None, brief: bool = False) -> dict[str, Any]:
+    logger.info("device_access_lists: host=%s acl=%s brief=%s", host, name, brief)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_access_lists(name, brief)
+
+
+def _device_users(host: str) -> list[dict[str, Any]]:
+    logger.info("device_users: host=%s", host)
+    device = get_device_record(host)
+    if not device:
+        return [{"host": host, "error": "device_not_found"}]
+    driver = RuckusDeviceDriver(device)
+    return driver.get_users()
+
+
+def _device_ssh_status(host: str) -> dict[str, Any]:
+    logger.info("device_ssh_status: host=%s", host)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_ssh_status()
+
+
+def _device_port_state(host: str, port: str, enable: bool, dry_run: bool = False) -> dict[str, Any]:
+    logger.info(
+        "device_port_state: host=%s port=%s enable=%s dry_run=%s",
+        host, port, enable, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "port": port, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.set_port_state(port, enable, dry_run=dry_run)
+
+
+def _device_vlan_create(
+    host: str, vlan_spec: str, name: str | None = None,
+    tagged_ports: str = "", untagged_ports: str = "",
+    spanning_tree: bool = False, stp_priority: int | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_vlan_create: host=%s spec=%s name=%s stp=%s dry_run=%s",
+        host, vlan_spec, name, spanning_tree, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "vlan_spec": vlan_spec, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.create_vlan(
+        vlan_spec, name=name, tagged_ports=tagged_ports,
+        untagged_ports=untagged_ports, spanning_tree=spanning_tree,
+        stp_priority=stp_priority, dry_run=dry_run,
+    )
+
+
+def _device_vlan_delete(
+    host: str, vlan_spec: str, dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_vlan_delete: host=%s spec=%s dry_run=%s",
+        host, vlan_spec, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "vlan_spec": vlan_spec, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.delete_vlan(vlan_spec, dry_run=dry_run)
+
+
+def _device_vlan_port(
+    host: str, port: str, vlan_spec: str, action: str,
+    tagged: bool = True, dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_vlan_port: host=%s port=%s action=%s spec=%s tagged=%s dry_run=%s",
+        host, port, action, vlan_spec, tagged, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "port": port, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.modify_vlan_port(port, vlan_spec, action, tagged=tagged, dry_run=dry_run)
+
+
+def _device_poe_port(
+    host: str, port: str, enable: bool,
+    priority: int | None = None,
+    power_limit: int | None = None,
+    power_by_class: int | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_poe_port: host=%s port=%s enable=%s dry_run=%s",
+        host, port, enable, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "port": port, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.set_poe_port(
+        port, enable, priority=priority, power_limit=power_limit,
+        power_by_class=power_by_class, dry_run=dry_run,
+    )
+
+
+def _device_poe_status(host: str, port: str | None = None) -> dict[str, Any]:
+    logger.info("device_poe_status: host=%s port=%s", host, port)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.get_poe_status(port=port)
+
+
 def register_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     def ruckus_device_info(host: str) -> dict[str, Any]:
@@ -345,17 +554,22 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_ping_ipv6(host, ip)
 
     @mcp.tool()
-    def ruckus_device_traceroute(host: str, ip: str, source_ip: str | None = None, max_ttl: int = 30) -> list[dict[str, Any]]:
+    def ruckus_device_traceroute(
+        host: str, ip: str, source_ip: str | None = None, max_ttl: int = 30
+    ) -> list[dict[str, Any]]:
         """Traceroute (IPv4) from device with optional source IP."""
         return _device_traceroute(host, ip, source_ip, max_ttl)
 
     @mcp.tool()
-    def ruckus_device_traceroute_ipv6(host: str, ip: str, max_ttl: int = 30) -> list[dict[str, Any]]:
+    def ruckus_device_traceroute_ipv6(host: str, ip: str, max_ttl: int = 30
+                                      ) -> list[dict[str, Any]]:
         """Traceroute IPv6 from ICX switch."""
         return _device_traceroute_ipv6(host, ip, max_ttl)
 
     @mcp.tool()
-    def ruckus_device_config_backup(host: str, config_type: str = "running", include_config: bool = False) -> dict[str, Any]:
+    def ruckus_device_config_backup(
+        host: str, config_type: str = "running", include_config: bool = False
+    ) -> dict[str, Any]:
         """Backup switch configuration to filesystem (restore-ready, mode 0600).
 
         Args:
@@ -366,6 +580,264 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_config_backup(host, config_type=config_type, include_config=include_config)
 
     @mcp.tool()
-    def ruckus_device_config_diff(host: str, config_type: str = "running") -> dict[str, Any]:
+    def ruckus_device_config_diff(
+        host: str, config_type: str = "running"
+    ) -> dict[str, Any]:
         """Check if current config differs from latest backup (sha256 compare)."""
         return _device_config_diff(host, config_type=config_type)
+
+    @mcp.tool()
+    def ruckus_device_lldp_neighbors(host: str) -> list[dict[str, Any]]:
+        """Get LLDP neighbors for an ICX switch — remote device, port, description per local interface."""
+        return _device_lldp_neighbors(host)
+
+    @mcp.tool()
+    def ruckus_device_poe_status(host: str) -> dict[str, Any]:
+        """Get PoE status for an ICX switch — power budget, per-port consumption, PD type, priority."""
+        return _device_poe_status(host)
+
+    @mcp.tool()
+    def ruckus_device_arp_table(host: str) -> list[dict[str, Any]]:
+        """Get ARP table for an ICX switch — IP-to-MAC-to-port mapping for L2/L3 troubleshooting."""
+        return _device_arp_table(host)
+
+    @mcp.tool()
+    def ruckus_device_resources(host: str) -> dict[str, Any]:
+        """Get CPU and memory utilization for an ICX switch — per-core load averages + DRAM usage."""
+        return _device_resources(host)
+
+    @mcp.tool()
+    def ruckus_device_sfp_info(host: str, port: str | None = None) -> list[dict[str, Any]]:
+        """Get SFP/transceiver info for an ICX switch — port type, vendor, serial. Optional port filter."""
+        return _device_sfp_info(host, port)
+
+    @mcp.tool()
+    def ruckus_device_cable_diag(host: str, port: str) -> dict[str, Any]:
+        """Run TDR cable diagnostic on an ICX copper port — per-pair status (terminated, open, short)."""
+        return _device_cable_diag(host, port)
+
+    @mcp.tool()
+    def ruckus_device_syslog(host: str, lines: int = 50, severity: str = "",
+                             dedup: bool = True) -> dict[str, Any]:
+        """Token-optimized ICX syslog: last N entries, optional severity filter (E=error, W=warning, I=info),
+        dedup collapses repeated messages. Default 50 lines, dedup on."""
+        return _device_syslog(host, lines=lines, severity=severity, dedup=dedup)
+
+    @mcp.tool()
+    def ruckus_device_optic_info(host: str, port: str) -> dict[str, Any]:
+        """Get SFP optic DOM info for an ICX port — temperature, voltage, tx/rx power, bias."""
+        return _device_optic_info(host, port)
+
+    @mcp.tool()
+    def ruckus_device_time(host: str) -> dict[str, Any]:
+        """Check ICX switch time + NTP sync status — current clock, NTP peers, sync state."""
+        return _device_time(host)
+
+    @mcp.tool()
+    def ruckus_device_spanning_tree(host: str, vlan: str | None = None) -> dict[str, Any]:
+        """Show STP topology — root bridge, port roles, per-port state (FORWARDING, BLOCKING, DISABLED)."""
+        return _device_spanning_tree(host, vlan)
+
+    @mcp.tool()
+    def ruckus_device_access_lists(
+        host: str, name: str | None = None, brief: bool = False
+    ) -> dict[str, Any]:
+        """List IP ACLs (all or specific). brief=True gives summary list (name + entries count)."""
+        return _device_access_lists(host, name, brief)
+
+    @mcp.tool()
+    def ruckus_device_users(host: str) -> list[dict[str, Any]]:
+        """List local user accounts on an ICX switch — username, privilege, status, expire time."""
+        return _device_users(host)
+
+    @mcp.tool()
+    def ruckus_device_ssh_status(host: str) -> dict[str, Any]:
+        """Show SSH server status + active SSH sessions — version, host key, per-session user/source IP."""
+        return _device_ssh_status(host)
+
+    @mcp.tool()
+    def ruckus_device_port_state(
+        host: str, port: str, enable: bool, confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Enable or disable an ICX switch port (admin up/down) via SSH config mode.
+
+        Args:
+            host: Device host (IP or name) from inventory.
+            port: Port identifier (e.g., 1/1/24).
+            enable: True to enable (admin up), False to disable (admin down).
+            confirm: Set to True to execute. Without it, returns confirm_required error.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_port_state(host, port, enable, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to enable/disable the port",
+            }
+        return _device_port_state(host, port, enable)
+
+    # ── VLAN Tools (destructive) ──────────────────────────────────
+
+    @mcp.tool()
+    def ruckus_device_vlan_create(
+        host: str,
+        vlan_spec: str,
+        name: str | None = None,
+        tagged_ports: str = "",
+        untagged_ports: str = "",
+        spanning_tree: bool = False,
+        stp_priority: int | None = None,
+        confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Create VLAN(s) on ICX switch.
+
+        Args:
+            host: Device host from inventory.
+            vlan_spec: VLAN ID, range, or list. Examples: '200', '210 to 213',
+                       '200 210 220', '16 17 20 to 24'.
+            name: Optional VLAN name (single VLAN only).
+            tagged_ports: Tagged port spec (e.g. 'ethernet 1/1/1 to 1/1/4 ethernet 1/1/17').
+            untagged_ports: Untagged port spec (single VLAN only).
+            spanning_tree: Enable STP (802-1w for multi-range, RSTP for single).
+            stp_priority: STP bridge priority (single VLAN only, 0-61440, multiple of 4096).
+            confirm: Set to True to execute. Without it, returns confirm_required error.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_vlan_create(
+                host, vlan_spec, name=name, tagged_ports=tagged_ports,
+                untagged_ports=untagged_ports, spanning_tree=spanning_tree,
+                stp_priority=stp_priority, dry_run=True,
+            )
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to create VLAN(s)",
+            }
+        return _device_vlan_create(
+            host, vlan_spec, name=name, tagged_ports=tagged_ports,
+            untagged_ports=untagged_ports, spanning_tree=spanning_tree,
+            stp_priority=stp_priority,
+        )
+
+    @mcp.tool()
+    def ruckus_device_vlan_delete(
+        host: str, vlan_spec: str, confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Delete VLAN(s) from ICX switch.
+
+        Args:
+            host: Device host from inventory.
+            vlan_spec: VLAN spec as in create (single, range, multi, mixed).
+            confirm: Set to True to execute.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_vlan_delete(host, vlan_spec, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to delete VLAN(s)",
+            }
+        return _device_vlan_delete(host, vlan_spec)
+
+    @mcp.tool()
+    def ruckus_device_vlan_port(
+        host: str,
+        port: str,
+        vlan_spec: str,
+        action: str = "add",
+        tagged: bool = True,
+        confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Add or remove a port from VLAN membership via interface vlan-config.
+
+        Args:
+            host: Device host from inventory.
+            port: Target port (e.g. '1/1/1').
+            vlan_spec: VLAN spec to add/remove port from.
+            action: 'add' or 'remove'. Add creates membership, remove strips VLANs from port.
+            tagged: True for tagged membership (add only), False for untagged.
+            confirm: Set to True to execute.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_vlan_port(
+                host, port, vlan_spec, action, tagged=tagged, dry_run=True,
+            )
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to modify VLAN port membership",
+            }
+        return _device_vlan_port(host, port, vlan_spec, action, tagged=tagged)
+
+    # ── PoE Tools ──────────────────────────────────────────────────
+
+    @mcp.tool()
+    def ruckus_device_poe_port(
+        host: str,
+        port: str,
+        enable: bool = True,
+        priority: int | None = None,
+        power_limit: int | None = None,
+        power_by_class: int | None = None,
+        confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Enable/disable PoE on a port with optional priority, power-limit, or class.
+
+        Unlike port_state (admin up/down), this only toggles inline power —
+        the data link stays up.
+
+        Power classes (IEEE 802.3): 0=15.4W  1=4W  2=7W  3=15.4W
+        4=30W  5=45W  6=60W  7=75W  8=90W
+        Priority: 1=critical  2=high  3=low (default)
+
+        Args:
+            host: Device host from inventory.
+            port: Port identifier (e.g. '1/1/1').
+            enable: True to supply PoE, False to cut power.
+            priority: Optional — 1(critical), 2(high), 3(low). Required if setting
+                      power_limit or power_by_class (ICX syntax rule).
+            power_limit: Optional power limit in mW (e.g. 30000 for 30W).
+            power_by_class: Optional IEEE class 0-8. Auto-sets power limit.
+            confirm: Set to True to execute.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_poe_port(
+                host, port, enable, priority=priority,
+                power_limit=power_limit, power_by_class=power_by_class,
+                dry_run=True,
+            )
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to toggle PoE on port",
+            }
+        return _device_poe_port(
+            host, port, enable, priority=priority,
+            power_limit=power_limit, power_by_class=power_by_class,
+        )
+
+    @mcp.tool()
+    def ruckus_device_poe_status(
+        host: str,
+        port: str | None = None,
+    ) -> dict[str, Any]:
+        """Read PoE status per port (no SSH write, safe to run any time).
+
+        If port is specified returns single port status; otherwise returns
+        all 48 ports with capacity summary.
+
+        Args:
+            host: Device host from inventory.
+            port: Optional port (e.g. '1/1/1') for single-port lookup.
+        """
+        return _device_poe_status(host, port=port)

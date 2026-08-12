@@ -97,10 +97,13 @@ Tetap wajib validasi karena:
 
 **Aturan ketat**:
 - Tidak ada hardcoded credentials di code apapun
-- Semua credential via `.env` (lihat section ENV di bawah)
-- `.env` wajib di `.gitignore`
+- vSZ: credential via `.env` (`VSZ_USER`, `VSZ_PASS`, `VSZ_API_TOKEN`)
+- ICX: credential via `inventory/devices.yaml` (field `username` / `password`)
+- ICX credential support env var substitution: `${VAR_NAME}` → resolve dari `.env` saat `load_inventory()`
+- Unknown env var: `KeyError` → credential reset kosong + log warning, device skip
+- `.env` dan `inventory/devices.yaml` wajib di `.gitignore`
 - Tidak pernah log password, token, atau service ticket
-- Gunakan `.env.example` sebagai template
+- Gunakan `.env.example` dan `inventory/devices.example.yaml` sebagai template
 
 ```python
 # ✅ CARA BENAR
@@ -245,6 +248,55 @@ def some_tool():
 
 ---
 
+### R5. Rate Limiting — Concurrency Control
+
+**vSZ API** — `asyncio.Semaphore` membatasi total concurrent request ke controller:
+
+```python
+# adapters/vsz.py
+self._semaphore = asyncio.Semaphore(int(os.getenv("VSZ_RATE_LIMIT", "10")))
+
+async def _request(self, ...):
+    async with self._semaphore:
+        # ... HTTP request
+```
+
+**ICX SSH** — `threading.BoundedSemaphore` per device membatasi concurrent SSH session:
+
+```python
+# adapters/device_ssh.py
+_semaphores: dict[str, threading.BoundedSemaphore] = {}
+
+@classmethod
+def _get_semaphore(cls, host):
+    if host not in cls._semaphores:
+        limit = int(os.environ.get("ICX_RATE_LIMIT", "5"))
+        cls._semaphores[host] = threading.BoundedSemaphore(limit)
+    return cls._semaphores[host]
+
+def _connect(self):
+    sem = self._get_semaphore(self.host)
+    sem.acquire()
+    conn = ConnectHandler(...)
+    # monkey-patch disconnect untuk auto-release semaphore
+    _orig = conn.disconnect
+    conn.disconnect = lambda: (_orig(), sem.release())
+    return conn
+```
+
+**Env config:**
+```env
+VSZ_RATE_LIMIT=10   # vSZ API concurrent (default 10)
+ICX_RATE_LIMIT=5    # ICX SSH per-device concurrent (default 5)
+```
+
+**Perilaku:**
+- Request antre (async untuk vSZ, blocking untuk ICX) — tidak error
+- vSZ: satu semaphore total (bottleneck di controller)
+- ICX: satu semaphore per device (100 switch = 100 semaphore independen)
+
+---
+
 ## PRIORITY 1 — CODE CLEANLINESS
 
 ### C1. Type Hints Wajib
@@ -350,6 +402,19 @@ def ap_status():        # Tool name tetap
     return _ap_status() # Panggil via alias
 ```
 
+### L5. ICX Syslog — Message Part Optional
+Entry syslog ICX tidak selalu punya `:message` setelah facility. Contoh:
+```
+Aug 6 13:53:08:I:COPY COMPLETED                # tanpa :message
+Aug 7 19:36:29:I:Security: SSH login by admin  # standard
+```
+Regex `([^:]+):(.+)` gagal pada entry tanpa message. Gunakan colon opsional + message boleh kosong:
+```python
+# ✅ CARA BENAR — colon opsional, message boleh empty
+m = re.match(r"(\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2}):(\w):([^:]+):?(.*)$", line)
+msg = m.group(4).strip() if m.group(4) else ""
+```
+
 ---
 
 ## DOCKER / DEPLOYMENT
@@ -404,25 +469,30 @@ backups/
 ### Documentation
 - [x] `CHANGES.md` update dengan issue tracking
 - [x] `skills/ruckus.md` update untuk tool baru
-- [x] `README.md` tool count sinkron (62 tools)
-- [x] Tidak ada data real (MAC, IP, user ID) di dokumentasi
-
-### Testing
-- [x] 131 pytest tests pass (12 test files, mock adapters, zero real hardware)
-- [x] Tool count verified: 62 tools registered
+- [x] `README.md` tool count sinkron (81 tools)
+- [x] 187 pytest tests pass (12 test files, mock adapters, zero real hardware)
+- [x] Tool count verified: 81 tools registered
 - [x] Integration tested vs production vSZ
+- [x] LLDP + PoE tested live: ICX7450-24-HPOE + ICX7150-48-POEF
 
 ---
 
-**Last updated**: 2026-08-06
-**Status**: Production-ready. All security checks passed. Full async. 62 tools.
+**Last updated**: 2026-08-12
+**Status**: Production-ready. All security checks passed. Full async. 81 tools. Rate limiting enabled (vSZ + ICX).
 
 ## Backlog — Future Development
 
+### Recently Completed
+- **PoE port control** — `ruckus_device_poe_port(host, port, enable)`, toggle inline power without link interruption
+- **VLAN management** — `ruckus_device_vlan_create`/`delete`/`port` with VLAN spec parser, tagged/untagged ports, STP
+- **Port enable/disable** — `ruckus_device_port_state(host, port, enable)`, SSH config mode, confirm gate
+- **Rate limiting (vSZ + ICX)** — semaphore-based concurrency control (VSZ_RATE_LIMIT, ICX_RATE_LIMIT)
+- **ICX per-device credentials** — username/password in devices.yaml with `${ENV_VAR}` substitution
+- **dotenv load in inventory/manager.py** — ensures env var resolution for credential substitution
+
 ### High Priority
-- **Device port enable/disable** — toggle ICX port admin up/down via SSH
-- **Alarm lifecycle** — `alarm_ack`, `alarm_clear` (perlu admin user)
 - **WLAN delete** — `delete_wlan` via API
+- **Alarm lifecycle** — `alarm_ack`, `alarm_clear` (perlu admin user)
 
 ### Medium Priority
 - **Docker rebuild** — docker-compose verify after async refactor

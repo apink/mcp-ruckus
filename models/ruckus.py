@@ -52,6 +52,8 @@ class ICXDevice:
     role: str = ""
     location: str = ""
     rack: str = ""
+    username: str = ""
+    password: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {

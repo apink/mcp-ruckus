@@ -27,8 +27,15 @@ All user inputs are validated before processing:
 
 ### Credential Management
 - No hardcoded credentials in source code
-- All credentials loaded from environment variables
-- `.env` files are gitignored by default
+- vSZ: credentials loaded from `.env` environment variables
+- ICX: credentials loaded from `inventory/devices.yaml` (field `username`/`password`)
+- ICX devices.yaml supports `${ENV_VAR}` substitution — bare `.env` vars, not in source
+- `.env` and `inventory/devices.yaml` are gitignored by default
+
+### Rate Limiting
+- vSZ API: `asyncio.Semaphore` — max concurrent requests (default: 10, config: `VSZ_RATE_LIMIT`)
+- ICX SSH: `threading.BoundedSemaphore` per-device — max concurrent sessions per switch (default: 5, config: `ICX_RATE_LIMIT`)
+- Prevents controller/switch overload when multiple tools called simultaneously
 
 ### Session Management
 - vSZ session reuse with TTL (600 seconds)
@@ -52,7 +59,7 @@ All dependencies are regularly updated and audited.
 
 ## Security Testing
 
-- Automated testing with pytest (131 tests, 12 test files)
+- Automated testing with pytest (187 tests, 12 test files)
 - Input validation coverage: 100%
 - Error handling verification
 - Session management testing

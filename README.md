@@ -5,16 +5,14 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-3.4.2-orange.svg)](https://gofastmcp.com)
 
-FastMCP-based MCP server for Ruckus wireless (vSZ SmartZone) and switching (ICX) infrastructure. Provides **62 tools** for AP monitoring, client traffic analytics, RF optimization, WLAN management, switch management, alarms, and health monitoring via streamable-http / SSE transport with security middleware.
+FastMCP-based MCP server for Ruckus wireless (vSZ SmartZone) and switching (ICX) infrastructure. Provides **81 MCP tools** for AP monitoring, client traffic analytics, RF optimization, WLAN management, switch management, LLDP neighbors, PoE status, alarms, and health monitoring via streamable-http / SSE transport with security middleware.
 
 ## Features
 
-- **62 MCP tools** across vSZ + ICX domains
-- **vSZ tools (35)**: AP status/radio/neighbors, **RF channel/power optimization (DSATUR + Tabu Search)**, SSID/WLAN CRUD, **client traffic stats per WLAN/AP/zone**, alarm list, rogue detection, client tracking, events, **controller health**
-- **ICX switch tools (22)**: device info/status, interfaces (summary/down/errors/stats), VLAN/LAG, MAC tables, routing table (v4+v6), IPv6, chassis health, ping/traceroute (v4+v6), **config backup + drift detection**
-- **Bulk tools (3)**: all-device info/status/backup
-- **Inventory tools (2)**: filter by location/role
-- **Connectivity tools (3)**: local ping, port check, HTTP latency
+- **81 MCP tools** across vSZ + ICX domains
+- **vSZ tools (31)**: AP status/radio/neighbors, **RF channel/power optimization (DSATUR + Tabu Search)**, SSID/WLAN CRUD, **client traffic stats per WLAN/AP/zone**, alarm list, rogue detection, client tracking, events, **controller health**
+- **ICX switch tools (41)**: device info/status, interfaces (summary/down/errors/stats), VLAN/LAG, MAC tables, routing table (v4+v6), IPv6, chassis health, ping/traceroute (v4+v6), **LLDP, PoE, ARP, CPU/mem, optic DOM, syslog, TDR cable diag, SFP info, config backup + drift detection, users, SSH status, port enable/disable, VLAN create/delete/port, PoE port enable/disable + per-port PoE status**
+- **Inventory & bulk tools (6)**: list devices, all-device info/status/backup, filter by location/role
 
 - **Multi-transport**: SSE + streamable-http with ASGI SecurityMiddleware
 - **Async**: full async vSZ adapter (httpx.AsyncClient) + all vSZ tools, parallel neighbor fetch, RF optimizer offloaded
@@ -60,64 +58,15 @@ docker compose up -d
 | `VSZ_PASS` | vSZ password | - |
 | `VSZ_API_TOKEN` | Optional API token | - |
 | `VSZ_API_VERSION` | API version (v10_0, v11_1) | `v11_1` |
-| `RUCKUS_ICX_USER` | ICX SSH username | - |
-| `RUCKUS_ICX_PASS` | ICX SSH password | - |
+| `VSZ_RATE_LIMIT` | Max concurrent API requests | `10` |
+| `ICX_RATE_LIMIT` | Max concurrent SSH sessions per device | `5` |
 | `MCP_API_KEY` | API key for security middleware | - |
 | `MCP_ALLOWED_IPS` | Comma-separated allowed IPs | `10.0.0.0/8` |
 
-### Server Configuration
-
-| Variable | Description | Default |
-|---|---|---|
-| `MCP_TRANSPORT` | Transport protocol | `sse` |
-| `MCP_PORT` | Server port | `8000` |
-| `MCP_HOST` | Bind address | `0.0.0.0` |
-
-### Agent-Side Setup
-
-**Claude Desktop** — macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`  
-Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```jsonc
-{
-  "mcpServers": {
-    "ruckus": {
-      "type": "sse",
-      "url": "http://<server-ip>:8000/sse",
-      "headers": {
-        "Authorization": "Bearer <MCP_API_KEY>"
-      }
-    }
-  }
-}
-```
-
-**Hermes (Goose)** — `~/.config/hermes/config.json`
-
-```jsonc
-{
-  "mcpServers": {
-    "ruckus": {
-      "transport": "sse",
-      "url": "http://<server-ip>:8000/sse",
-      "headers": {
-        "Authorization": "Bearer <MCP_API_KEY>"
-      }
-    }
-  }
-}
-```
-
-**Endpoint mapping:**
-
-| Transport | URL Path |
-|-----------|----------|
-| SSE | `http://<host>:<port>/sse` |
-| streamable-http | `http://<host>:<port>/mcp` |
-
 ### Device Inventory
 
-Create `inventory/devices.yaml` for ICX tools:
+Create `inventory/devices.yaml` for ICX tools.
+`username` / `password` support `${ENV_VAR}` substitution or literal values:
 
 ```yaml
 devices:
@@ -126,11 +75,18 @@ devices:
     vendor: "ruckus"
     role: "core"
     location: "datacenter"
+    username: "${ICX_CORE_USER}"
+    password: "${ICX_CORE_PASS}"
+
+  - host: "10.0.10.1"
+    name: "sw-branch"
+    username: "admin-branch"
+    password: "s3cret123"
 ```
 
 ## Tools
 
-### vSZ AP Tools (6)
+### vSZ AP Tools (7)
 
 | Tool | Description |
 |---|---|
@@ -177,7 +133,7 @@ devices:
 | `ap_traffic_stats` | Per-AP rx/tx MB + client count |
 | `zone_traffic_stats` | Per-zone rx/tx MB + AP count + active WLANs |
 
-### vSZ Monitoring Tools (5)
+### vSZ Monitoring Tools (6)
 
 | Tool | Description |
 |---|---|
@@ -196,10 +152,15 @@ devices:
 | `domain_list` | Administration domains |
 | `toggle_wlan` | Enable/disable WLAN |
 
-### ICX Switch Tools (22)
+### icx_device.py (41 ICX switch tools)
 
 | Tool | Description |
-|---|---|
+|---|---|---|
+| `ruckus_device_access_lists` | IP ACL rules + brief summary |
+| `ruckus_device_users` | Local user accounts (hash tidak diekspos) |
+| `ruckus_device_ssh_status` | SSH server status + sesi aktif (user, source IP) |
+| `ruckus_device_spanning_tree` | STP topology |
+| `ruckus_device_time` | Clock + NTP sync status |
 | `ruckus_device_info` | Device model, firmware, uptime |
 | `ruckus_device_status` | CPU, memory, temperature |
 | `ruckus_device_interfaces_summary` | All interfaces |
@@ -214,6 +175,19 @@ devices:
 | `ruckus_device_mac_table_vlan` | MAC table by VLAN |
 | `ruckus_device_find_mac` | Locate MAC across device |
 | `ruckus_device_lag_summary` | LAG status |
+| `ruckus_device_lldp_neighbors` | LLDP neighbors (topology) |
+| `ruckus_device_poe_status` | PoE power budget + per-port status (optional port filter) |
+| `ruckus_device_poe_port` | Enable/disable PoE per port (priority, power_limit, power_by_class) — confirm gate |
+| `ruckus_device_optic_info` | SFP optic DOM |
+| `ruckus_device_syslog` | System logs (parsed, dedup, filter) |
+| `ruckus_device_cable_diag` | TDR cable diagnostics |
+| `ruckus_device_sfp_info` | SFP/transceiver types |
+| `ruckus_device_resources` | CPU and memory utilization |
+| `ruckus_device_arp_table` | ARP table (IP→MAC→port) |
+| `ruckus_device_port_state` | Enable/disable port (admin up/down) — confirm gate |
+| `ruckus_device_vlan_create` | Create VLAN (single/range/multi + name + ports) — confirm gate |
+| `ruckus_device_vlan_delete` | Delete VLAN (single/range/multi) — confirm gate |
+| `ruckus_device_vlan_port` | Add/remove port VLAN membership — confirm gate |
 | `ruckus_device_chassis_health` | Power, fans, temperature |
 | `ruckus_device_ipv6_interfaces` | IPv6 interfaces |
 | `ruckus_device_ping` | Ping from switch |
@@ -223,7 +197,7 @@ devices:
 | `ruckus_device_config_backup` | Config backup (metadata-only default) |
 | `ruckus_device_config_diff` | Config drift detection |
 
-### Inventory & Bulk Tools (5)
+### Inventory & Bulk Tools (6)
 
 | Tool | Description |
 |---|---|
@@ -248,7 +222,7 @@ devices:
 server.py (FastMCP, SSE + streamable-http, ASGI SecurityMiddleware)
 ├── adapters/
 │   ├── vsz.py (async vSZ REST adapter — httpx.AsyncClient, 24 methods)
-│   ├── device_ssh.py (sync ICX Netmiko SSH driver, 22 tools)
+│   ├── device_ssh.py (sync ICX Netmiko SSH driver, 30 tools)
 │   └── config.py (VsZConfig, DeviceCredentials)
 ├── tools/
 │   ├── vsz_system.py (zone, license, controller stats)
@@ -261,13 +235,13 @@ server.py (FastMCP, SSE + streamable-http, ASGI SecurityMiddleware)
 │   ├── vsz_rogue.py (rogue client query)
 │   ├── vsz_rf.py (RF optimization + apply)
 │   ├── vsz_domains.py (domain list)
-│   ├── icx_device.py (22 ICX switch tools)
+│   ├── icx_device.py (41 ICX switch tools)
 │   ├── inventory.py (device inventory + bulk)
 │   └── connectivity.py (local ping/port/http)
 ├── inventory/
 │   └── devices.yaml (gitignored)
 ├── backups/ (gitignored, mode 0600)
-└── tests/ (12 test files, 131 tests, mock adapters)
+└── tests/ (12 test files, 187 tests, mock adapters)
 ```
 
 ## Security
@@ -288,11 +262,11 @@ server.py (FastMCP, SSE + streamable-http, ASGI SecurityMiddleware)
 ## Testing
 
 ```bash
-pytest tests/ -q           # 131 tests, 12 test files
+pytest tests/ -q           # 187 tests, 12 test files
 pytest tests/ -v           # verbose output
 ```
 
-Zero real hardware required — full mock adapter layer in `tests/conftest.py`.
+Zero real hardware required — full mock adapter layer in `tests/conftest.py`. **187 tests**, 12 test files.
 
 ## Deployment
 
