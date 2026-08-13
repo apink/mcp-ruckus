@@ -84,6 +84,7 @@ devices:
 | [DOCS_SAFETY.md](DOCS_SAFETY.md) | Safety gates (12 destructive tools) + dry-run preview |
 | [SECURITY.md](SECURITY.md) | Security policy, input validation, credential handling |
 | [CHANGES.md](CHANGES.md) | Changelog + release notes |
+| [SKILL.md](SKILL.md) | AI agent skill (copy to your agent's skills dir) |
 | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | Development guidelines |
 
 ## Security
