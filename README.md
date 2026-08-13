@@ -88,7 +88,7 @@ pip install -e .
 python3 server.py
 ```
 
-When it starts, the server listens on `0.0.0.0:8000` and serves SSE at `http://localhost:8000/sse`.
+When it starts, the server listens on `0.0.0.0:8000` and serves SSE at `http://{SERVER_IP}:8000/sse` (use `localhost` for the same machine).
 
 ### Option B — run with Docker
 
@@ -145,14 +145,14 @@ devices:
 
 Once the server is running, point your AI assistant at it. That's how the 81 tools appear inside the agent.
 
+> Replace `{SERVER_IP}` with the IP or hostname of the machine running the server. Use `localhost` if the agent runs on the same machine.
+
 Two endpoints, pick one:
 
 | Transport | Endpoint | When to use |
 |---|---|---|
-| SSE | `http://localhost:8000/sse` | Simple, local setup |
-| Streamable HTTP | `http://localhost:8000/mcp` | Production / remote server |
-
-> If the agent runs on a different machine, replace `localhost` with the server's IP or hostname.
+| SSE | `http://{SERVER_IP}:8000/sse` | Simple, local setup |
+| Streamable HTTP | `http://{SERVER_IP}:8000/mcp` | Production / remote server |
 
 ### Hermes
 
@@ -161,7 +161,7 @@ Add a `mcp_servers` block to `~/.hermes/config.yaml`:
 ```yaml
 mcp_servers:
   ruckus:
-    url: http://localhost:8000/sse
+    url: http://{SERVER_IP}:8000/sse
     transport: sse
     timeout: 120
     connect_timeout: 15
@@ -172,7 +172,7 @@ mcp_servers:
 Easiest via CLI:
 
 ```bash
-openclaw mcp add ruckus --url http://localhost:8000/sse --transport sse
+openclaw mcp add ruckus --url http://{SERVER_IP}:8000/sse --transport sse
 ```
 
 or drop it into `~/.openclaw/openclaw.json`:
@@ -182,7 +182,7 @@ or drop it into `~/.openclaw/openclaw.json`:
   mcp: {
     servers: {
       ruckus: {
-        url: "http://localhost:8000/sse",
+        url: "http://{SERVER_IP}:8000/sse",
         transport: "sse",
         enabled: true
       }
@@ -194,7 +194,7 @@ or drop it into `~/.openclaw/openclaw.json`:
 ### Claude Code
 
 ```bash
-claude mcp add --transport sse ruckus http://localhost:8000/sse
+claude mcp add --transport sse ruckus http://{SERVER_IP}:8000/sse
 ```
 
 or a project-scoped `.mcp.json` (shareable via git):
@@ -204,7 +204,7 @@ or a project-scoped `.mcp.json` (shareable via git):
   "mcpServers": {
     "ruckus": {
       "type": "sse",
-      "url": "http://localhost:8000/sse"
+      "url": "http://{SERVER_IP}:8000/sse"
     }
   }
 }
@@ -215,7 +215,7 @@ or a project-scoped `.mcp.json` (shareable via git):
 Pass it as a Bearer header. Example for Claude Code:
 
 ```bash
-claude mcp add --transport sse ruckus http://localhost:8000/sse \
+claude mcp add --transport sse ruckus http://{SERVER_IP}:8000/sse \
   --header "Authorization: Bearer YOUR_KEY"
 ```
 
