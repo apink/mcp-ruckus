@@ -76,6 +76,71 @@ devices:
     password: "s3cret123"
 ```
 
+## Connect to an AI Agent (MCP)
+
+Start the server (`python3 server.py`), then register its endpoint in your agent.
+
+| Transport | Endpoint |
+|---|---|
+| SSE | `http://localhost:8000/sse` |
+| Streamable HTTP | `http://localhost:8000/mcp` |
+
+### Hermes
+
+Add to `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  ruckus:
+    url: http://localhost:8000/sse
+    transport: sse
+    timeout: 120
+    connect_timeout: 15
+```
+
+### OpenClaw
+
+```bash
+openclaw mcp add ruckus --url http://localhost:8000/sse --transport sse
+```
+
+or in `~/.openclaw/openclaw.json`:
+
+```json5
+{
+  mcp: {
+    servers: {
+      ruckus: {
+        url: "http://localhost:8000/sse",
+        transport: "sse",
+        enabled: true
+      }
+    }
+  }
+}
+```
+
+### Claude Code
+
+```bash
+claude mcp add --transport sse ruckus http://localhost:8000/sse
+```
+
+or project-scoped `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ruckus": {
+      "type": "sse",
+      "url": "http://localhost:8000/sse"
+    }
+  }
+}
+```
+
+If `MCP_API_KEY` is set, add an `Authorization: Bearer <key>` header to the server entry.
+
 ## Documentation
 
 | Doc | Content |
