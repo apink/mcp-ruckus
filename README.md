@@ -5,16 +5,16 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![FastMCP](https://img.shields.io/badge/FastMCP-3.4.2-orange.svg)](https://gofastmcp.com)
 
-FastMCP-based MCP server untuk infrastruktur Ruckus — wireless (vSZ SmartZone) dan switching (ICX). Menyediakan **81 MCP tools** untuk monitoring AP, analisis traffic client, optimasi RF, manajemen WLAN, manajemen switch, PoE, LLDP, alarm, dan health monitoring. Transport SSE + streamable-http dengan security middleware.
+FastMCP-based MCP server for Ruckus wireless (vSZ SmartZone) and switching (ICX) infrastructure. Provides **81 MCP tools** for AP monitoring, client traffic analytics, RF optimization, WLAN management, switch management, LLDP neighbors, PoE status, alarms, and health monitoring via streamable-http / SSE transport with security middleware.
 
 ## Features
 
 - **81 MCP tools** (31 vSZ + 41 ICX + 6 inventory + 3 connectivity)
-- **vSZ**: AP status/radio/neighbors, RF optimization (DSATUR + Tabu Search), WLAN CRUD, traffic stats, alarm, rogue detection, client tracking, controller health
-- **ICX**: device info/status, interfaces, VLAN/LAG, routing (v4+v6), PoE, LLDP, ARP, optic DOM, syslog, TDR diag, SFP, config backup + drift detection, port control, VLAN management
-- **Full async** vSZ adapter (httpx.AsyncClient), ICX SSH via Netmiko dengan rate limiting per-device
+- **vSZ**: AP status/radio/neighbors, RF optimization (DSATUR + Tabu Search), WLAN CRUD, traffic stats, alarms, rogue detection, client tracking, controller health
+- **ICX**: device info/status, interfaces, VLAN/LAG, routing (v4+v6), PoE, LLDP, ARP, optic DOM, syslog, TDR diagnostics, SFP, config backup + drift detection, port control, VLAN management
+- **Full async** vSZ adapter (httpx.AsyncClient), ICX SSH via Netmiko with per-device rate limiting
 
-Daftar lengkap tools: [docs/TOOLS.md](docs/TOOLS.md)
+Complete tool list: [docs/TOOLS.md](docs/TOOLS.md)
 
 ## Quick Start
 
@@ -24,12 +24,12 @@ Daftar lengkap tools: [docs/TOOLS.md](docs/TOOLS.md)
 git clone https://github.com/your-org/mcp-ruckus.git
 cd mcp-ruckus
 cp .env.example .env
-# Edit .env dengan kredensial kamu
+# Edit .env with your credentials
 
 python3 -m venv venv && source venv/bin/activate
-pip install -e .        # atau: pip install -r requirements.txt
+pip install -e .        # or: pip install -r requirements.txt
 
-# Edit MCP_TRANSPORT di .env (sse / streamable-http)
+# Edit MCP_TRANSPORT in .env (sse / streamable-http)
 python3 server.py
 ```
 
@@ -53,12 +53,12 @@ docker compose up -d
 | `VSZ_API_VERSION` | API version (v10_0, v11_1) | `v11_1` |
 | `VSZ_RATE_LIMIT` | Max concurrent API requests | `10` |
 | `ICX_RATE_LIMIT` | Max concurrent SSH sessions per device | `5` |
-| `MCP_API_KEY` | API key untuk security middleware | - |
+| `MCP_API_KEY` | API key for security middleware | - |
 | `MCP_ALLOWED_IPS` | Comma-separated allowed IPs | `10.0.0.0/8` |
 
 ### Device Inventory
 
-Buat `inventory/devices.yaml` untuk tools ICX. `username`/`password` mendukung `${ENV_VAR}` substitution atau nilai literal:
+Create `inventory/devices.yaml` for ICX tools. `username`/`password` support `${ENV_VAR}` substitution or literal values:
 
 ```yaml
 devices:
@@ -78,25 +78,25 @@ devices:
 
 ## Documentation
 
-| Doc | Isi |
+| Doc | Content |
 |---|---|
-| [docs/TOOLS.md](docs/TOOLS.md) | Daftar lengkap 81 tools |
+| [docs/TOOLS.md](docs/TOOLS.md) | Complete list of 81 tools |
 | [DOCS_SAFETY.md](DOCS_SAFETY.md) | Safety gates (12 destructive tools) + dry-run preview |
 | [SECURITY.md](SECURITY.md) | Security policy, input validation, credential handling |
 | [CHANGES.md](CHANGES.md) | Changelog + release notes |
-| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | Panduan pengembangan |
+| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | Development guidelines |
 
 ## Security
 
-- Semua tool destruktif wajib `confirm=True` — tanpa itu return `confirm_required`, tanpa efek
-- Tool config ICX mendukung `dry_run=True` untuk preview perintah tanpa eksekusi
+- All destructive tools require `confirm=True` — without it returns `confirm_required`, no effect
+- ICX config tools support `dry_run=True` for preview without execution
 - Config backup: metadata-only default (mode `0600`), `include_config=True` opt-in
-- Kredensial tidak pernah di-hardcode; `.env` dan `devices.yaml` gitignored
+- Credentials never hardcoded; `.env` and `devices.yaml` are gitignored
 
 ## Testing
 
 ```bash
-pytest tests/ -q   # 187 tests, 12 test files — mock adapter, tanpa hardware asli
+pytest tests/ -q   # 187 tests, 12 test files — mock adapter, no real hardware
 ```
 
 ## License
