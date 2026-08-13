@@ -1,24 +1,24 @@
 # Ruckus MCP Development Guidelines
 
-Panduan pengembangan production-ready untuk mcp-ruckus.
-Fokus: **Security, Reliability, Code Cleanliness**.
+Production-ready development guidelines for mcp-ruckus.
+Focus: **Security, Reliability, Code Cleanliness**.
 
 ---
 
-## PRIORITY 0 — SECURITY (Wajib sebelum production)
+## PRIORITY 0 — SECURITY (Required before production)
 
-### S1. Input Sanitization — Cegah Command Injection
+### S1. Input Sanitization — Prevent Command Injection
 
-**Masalah**: Input user langsung dimasukkan ke SSH command tanpa validasi.
-Switch Ruckus ICX memproses karakter `;` sebagai command separator.
-Input berbahaya seperti `1/1/1; enable; configure terminal` bisa dieksekusi switch.
+**Issue**: User input directly passed to SSH commands without validation.
+Ruckus ICX switches process `;` as command separator.
+Dangerous input like `1/1/1; enable; configure terminal` can be executed on the switch.
 
-**Aturan**: VALIDATE SETIAP input yang masuk ke `send_command()` atau `send_command_timing()`.
+**Rule**: VALIDATE EVERY input that goes into `send_command()` or `send_command_timing()`.
 
 ```python
 import re
 
-# Pre-compiled validators (di top of file, bukan inline)
+# Pre-compiled validators (at top of file, not inline)
 PORT_RE = re.compile(r'^\d+/\d+/\d+$')          # Format: 1/2/3
 MAC_RE = re.compile(r'^[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}$')  # d4c1.9e32.2c48
 IPV4_RE = re.compile(r'^\d{1,3}(\.\d{1,3}){3}$')  # 192.168.1.1
@@ -45,21 +45,21 @@ def _validate_uuid(value: str) -> str:
     return value
 ```
 
-**Implementation di adapter SSH**:
+**Implementation in SSH adapter**:
 ```python
-# ✅ CARA BENAR — validate sebelum send_command
+# ✅ CORRECT WAY — validate before send_command
 output = conn.send_command(f"show vlan brief ethernet {_validate_port(port)}")
 
-# ❌ DILARANG — langsung pakai input user
+# ❌ FORBIDDEN — directly use user input
 output = conn.send_command(f"show vlan brief ethernet {port}")
 output = conn.send_command(f"show mac-address {mac}")
 output = conn.send_command_timing(f"ping {ip} source {source}")
 ```
 
-**Checklist setiap command yang pakai f-string**:
+**Checklist for every command using f-string**:
 - [x] Port: `_validate_port()` — regex `^\d+/\d+/\d+$`
-- [x] MAC: `_validate_mac()` — regex format dot
-- [x] IPv4: `_validate_ipv4()` — 4 oktet
+- [x] MAC: `_validate_mac()` — regex dot format
+- [x] IPv4: `_validate_ipv4()` — 4 octets
 - [x] VLAN ID: `int()` cast + range check (1-4094)
 - [x] Source IP: `_validate_ipv4()`
 
@@ -67,17 +67,17 @@ output = conn.send_command_timing(f"ping {ip} source {source}")
 
 ### S2. URL Injection Prevention — vSZ REST API
 
-**Masalah**: `zone_id` dan `wlan_id` langsung ke URL tanpa validasi.
-Bisa manipulasi path REST API.
+**Issue**: `zone_id` and `wlan_id` directly to URL without validation.
+Can manipulate REST API path.
 
 ```python
-# ✅ CARA BENAR — validate UUID sebelum URL construction
+# ✅ CORRECT WAY — validate UUID before URL construction
 def get_wlan_detail(self, zone_id: str, wlan_id: str) -> dict:
     _validate_uuid(zone_id)
     _validate_uuid(wlan_id)
     return self._request(f"/rkszones/{zone_id}/wlans/{wlan_id}")
 
-# ❌ DILARANG
+# ❌ FORBIDDEN
 return self._request(f"/rkszones/{zone_id}/wlans/{wlan_id}")
 ```
 
@@ -85,48 +85,48 @@ return self._request(f"/rkszones/{zone_id}/wlans/{wlan_id}")
 
 ### S3. Defense in Depth
 
-Input ke MCP server berasal dari AI agent, BUKAN user langsung.
-Tetap wajib validasi karena:
-- Agent bisa di-trick via prompt injection
-- Future use: web UI langsung ke MCP server
-- Network exposure jika dibuka ke broader network
+MCP server input comes from AI agent, NOT direct user.
+Still required validation because:
+- Agent can be tricked via prompt injection
+- Future use: web UI directly to MCP server
+- Network exposure if opened to broader network
 
 ---
 
 ### S4. Credential Management
 
-**Aturan ketat**:
-- Tidak ada hardcoded credentials di code apapun
-- vSZ: credential via `.env` (`VSZ_USER`, `VSZ_PASS`, `VSZ_API_TOKEN`)
-- ICX: credential via `inventory/devices.yaml` (field `username` / `password`)
-- ICX credential support env var substitution: `${VAR_NAME}` → resolve dari `.env` saat `load_inventory()`
-- Unknown env var: `KeyError` → credential reset kosong + log warning, device skip
-- `.env` dan `inventory/devices.yaml` wajib di `.gitignore`
-- Tidak pernah log password, token, atau service ticket
-- Gunakan `.env.example` dan `inventory/devices.example.yaml` sebagai template
+**Strict rules**:
+- No hardcoded credentials anywhere
+- vSZ: credentials via `.env` (`VSZ_USER`, `VSZ_PASS`, `VSZ_API_TOKEN`)
+- ICX: credentials via `inventory/devices.yaml` (field `username` / `password`)
+- ICX credential supports env var substitution: `${VAR_NAME}` → resolve from `.env` during `load_inventory()`
+- Unknown env var: `KeyError` → credential reset empty + log warning, device skip
+- `.env` and `inventory/devices.yaml` must be in `.gitignore`
+- Never log password, token, or service ticket
+- Use `.env.example` and `inventory/devices.example.yaml` as templates
 
 ```python
-# ✅ CARA BENAR
+# ✅ CORRECT WAY
 ticket = os.getenv("VSZ_API_TOKEN", "")
 logger.debug(f"Auth method: {'token' if ticket else 'user/pass'}")
-# TIDAK: logger.debug(f"Token: {ticket}")
+# NOT: logger.debug(f"Token: {ticket}")
 
-# ❌ DILARANG
+# ❌ FORBIDDEN
 TOKEN = "abc123..."
 password = "admin123"
 ```
 
 ---
 
-## PRIORITY 1 — RELIABILITY (Wajib untuk stabilitas)
+## PRIORITY 1 — RELIABILITY (Required for stability)
 
-### R1. Error Handling — Jangan Silent Fail
+### R1. Error Handling — No Silent Fail
 
-**Masalah**: `vsz._request()` catch semua HTTPError lalu return `{}` (kosong).
-User/agent kira tidak ada data, padahal sebenarnya error.
+**Issue**: `vsz._request()` catches all HTTPError then returns `{}` (empty).
+User/agent thinks no data, but actually error.
 
 ```python
-# ✅ CARA BENAR — return error eksplisit
+# ✅ CORRECT WAY — return explicit error
 def _request(self, path, method="GET", payload=None):
     try:
         resp = httpx.post(url, ...)
@@ -139,15 +139,15 @@ def _request(self, path, method="GET", payload=None):
         logger.error(f"vSZ API {method} {path} network error: {exc}")
         return {"error": "network_error", "detail": str(exc)}
 
-# ❌ DILARANG — silent return kosong
+# ❌ FORBIDDEN — silent empty return
 except httpx.HTTPError:
-    return {}  # User tidak tahu kalau error
+    return {}  # User doesn't know if error
 ```
 
-**Aturan**: Setiap tool function harus check `"error" in result` sebelum return.
+**Rule**: Every tool function must check `"error" in result` before return.
 
 ```python
-# ✅ Pattern wajib di setiap tool function
+# ✅ Mandatory pattern in every tool function
 def some_tool(param):
     adapter = VsZRestAdapter()
     result = adapter.login()
@@ -155,7 +155,7 @@ def some_tool(param):
         return {"error": result["error"], "detail": result.get("detail", "")}
     data = adapter.get_data(param)
     if "error" in data:
-        return data  # Propagate error ke caller
+        return data  # Propagate error to caller
     return _parse_data(data)
 ```
 
@@ -163,18 +163,18 @@ def some_tool(param):
 
 ### R2. SSH Connection Retry Logic
 
-**Masalah**: Koneksi SSH ke ICX switch sering transient fail:
+**Issue**: SSH connection to ICX switch often transiently fails:
 - `Error reading SSH protocol banner`
 - `Invalid packet blocking`
-- Timeout di high-traffic
+- Timeout during high-traffic
 
-Tanpa retry, tool return error untuk masalah sementara.
+Without retry, tool returns error for temporary issues.
 
 ```python
 import time
 
 def _connect_with_retry(self, max_retries=2, backoff=1.5):
-    """Connect SSH dengan retry dan exponential backoff."""
+    """Connect SSH with retry and exponential backoff."""
     last_exc = None
     for attempt in range(max_retries + 1):
         try:
@@ -186,7 +186,7 @@ def _connect_with_retry(self, max_retries=2, backoff=1.5):
                 time.sleep(backoff ** attempt)
     raise last_exc
 
-# Usage di setiap method:
+# Usage in every method:
 def get_device_info(self):
     try:
         with self._connect_with_retry() as conn:
@@ -198,7 +198,7 @@ def get_device_info(self):
 
 ### R3. Structured Logging
 
-**Masalah**: Tidak ada logging satupun. Susah debug production, tidak ada audit trail.
+**Issue**: No logging at all. Hard to debug production, no audit trail.
 
 **Standard**:
 ```python
@@ -213,25 +213,25 @@ logger.warning("SSH retry attempt %d for %s", attempt, self.host)
 logger.error("vSZ API failed: %s %s — %s", method, path, exc)
 ```
 
-**Wajib log di**:
-- Tool entry point (INFO): parameter yang dipanggil
+**Required log at**:
+- Tool entry point (INFO): parameters called
 - Network errors (WARNING/ERROR): host, path, exception
 - Login failures (ERROR): username masked
 - Retry attempts (WARNING): attempt number, exception
 
-**DILARANG log**: password, token, service ticket, MAC address user.
+**FORBIDDEN to log**: password, token, service ticket, user MAC address.
 
 ---
 
 ### R4. Connection Management
 
-**vSZ**: Jangan login per tool call.
+**vSZ**: Don't login per tool call.
 ```python
-# ✅ Session reuse dengan TTL
+# ✅ Session reuse with TTL
 class VsZRestAdapter:
     _service_ticket: str | None = None
     _login_time: float = 0
-    SESSION_TTL = 600  # 10 menit
+    SESSION_TTL = 600  # 10 minutes
 
     def _ensure_login(self):
         if self._service_ticket and (time.time() - self._login_time < self.SESSION_TTL):
@@ -243,14 +243,14 @@ class VsZRestAdapter:
 # ❌ Login per tool call (current implementation)
 def some_tool():
     adapter = VsZRestAdapter()
-    adapter.login()  # New ticket setiap call
+    adapter.login()  # New ticket every call
 ```
 
 ---
 
 ### R5. Rate Limiting — Concurrency Control
 
-**vSZ API** — `asyncio.Semaphore` membatasi total concurrent request ke controller:
+**vSZ API** — `asyncio.Semaphore` limits total concurrent requests to controller:
 
 ```python
 # adapters/vsz.py
@@ -261,7 +261,7 @@ async def _request(self, ...):
         # ... HTTP request
 ```
 
-**ICX SSH** — `threading.BoundedSemaphore` per device membatasi concurrent SSH session:
+**ICX SSH** — `threading.BoundedSemaphore` per device limits concurrent SSH session:
 
 ```python
 # adapters/device_ssh.py
@@ -278,7 +278,7 @@ def _connect(self):
     sem = self._get_semaphore(self.host)
     sem.acquire()
     conn = ConnectHandler(...)
-    # monkey-patch disconnect untuk auto-release semaphore
+    # monkey-patch disconnect to auto-release semaphore
     _orig = conn.disconnect
     conn.disconnect = lambda: (_orig(), sem.release())
     return conn
@@ -290,34 +290,34 @@ VSZ_RATE_LIMIT=10   # vSZ API concurrent (default 10)
 ICX_RATE_LIMIT=5    # ICX SSH per-device concurrent (default 5)
 ```
 
-**Perilaku:**
-- Request antre (async untuk vSZ, blocking untuk ICX) — tidak error
-- vSZ: satu semaphore total (bottleneck di controller)
-- ICX: satu semaphore per device (100 switch = 100 semaphore independen)
+**Behavior:**
+- Requests queue (async for vSZ, blocking for ICX) — no error
+- vSZ: single semaphore total (bottleneck at controller)
+- ICX: single semaphore per device (100 switches = 100 independent semaphores)
 
 ---
 
 ## PRIORITY 1 — CODE CLEANLINESS
 
-### C1. Type Hints Wajib
+### C1. Type Hints Required
 
 ```python
-# ✅ CARA BENAR
+# ✅ CORRECT WAY
 def get_port_vlan(self, host: str, port: str) -> dict[str, Any]:
     ...
 
-# ❌ Tanpa type hint
+# ❌ Without type hint
 def get_port_vlan(self, host, port):
     ...
 ```
 
-Semua function signature harus ada return type dan parameter types.
+All function signatures must have return type and parameter types.
 
 ---
 
 ### C2. Naming Convention
 
-| Tipe | Convention | Contoh |
+| Type | Convention | Example |
 |---|---|---|
 | Function/method | snake_case | `get_device_info()` |
 | Class | PascalCase | `VsZRestAdapter` |
@@ -331,62 +331,62 @@ Semua function signature harus ada return type dan parameter types.
 ### C3. Regex Best Practice
 
 ```python
-# ✅ CARA BENAR — raw string, pre-compiled
+# ✅ CORRECT WAY — raw string, pre-compiled
 PORT_RE = re.compile(r'^\d+/\d+/\d+$')
 match = PORT_RE.search(port)
 
-# ❌ DILARANG — non-raw string
+# ❌ FORBIDDEN — non-raw string
 re.compile('^\\d+/\\d+/\\d+$')  # Error-prone
 re.compile('^\d+/\d+/\d+$')     # SyntaxWarning
 ```
 
-- Selalu gunakan `r''` (raw string) untuk regex
-- Pre-compile pattern di module level (performance)
-- Named groups untuk readability: `(?P<mac>...)`
+- Always use `r''` (raw string) for regex
+- Pre-compile pattern at module level (performance)
+- Named groups for readability: `(?P<mac>...)`
 
 ---
 
 ### C4. No Duplicate Code — DRY
 
 ```python
-# ✅ Helper function untuk pattern berulang
+# ✅ Helper function for repeating pattern
 def _safe_request(self, path: str, method: str = "GET", **kwargs) -> dict:
-    """Wrapper dengan error handling dan logging."""
+    """Wrapper with error handling and logging."""
     data = self._request(path, method=method, **kwargs)
     if "error" in data:
         logger.error("Request failed: %s %s", method, path)
     return data
 
-# ❌ Error handling diulang di setiap tool
+# ❌ Error handling repeated in every tool
 def tool_a():
     adapter = VsZRestAdapter()
     result = adapter.login()
     if "error" in result:
         return {"error": ...}
-    # ... duplikat 38 kali
+    # ... duplicate 38 times
 ```
 
 ---
 
-## LESSONS LEARNED — Dari Issue Historis
+## LESSONS LEARNED — From Historical Issues
 
 ### L1. `.env` Parser — Inline Comment Bug
 ```python
-# ✅ Strip komentar sebelum parsing
+# ✅ Strip comment before parsing
 if "#" in _line:
     _line = _line[:_line.index("#")].strip()
 ```
 
 ### L2. API Version — Dynamic Path
 ```python
-# ✅ api_path() method, bukan hardcode v10_0
+# ✅ api_path() method, not hardcode v10_0
 def api_path(self):
     return f"/wsg/api/public/{self.api_version}"
 ```
 
 ### L3. Ruckus API Filter Format
 ```python
-# ✅ extraFilters untuk SEVERITY/CATEGORY, bukan filters
+# ✅ extraFilters for SEVERITY/CATEGORY, not filters
 body = {
     "filters": [],
     "extraFilters": [{"type": "SEVERITY", "value": "Critical", "operator": "eq"}],
@@ -395,22 +395,22 @@ body = {
 
 ### L4. Infinite Recursion — Import Shadowing
 ```python
-# ✅ Alias import dengan prefix _
+# ✅ Alias import with prefix _
 from tools.management import ap_status as _ap_status
 @mcp.tool()
-def ap_status():        # Tool name tetap
-    return _ap_status() # Panggil via alias
+def ap_status():        # Tool name remains
+    return _ap_status() # Call via alias
 ```
 
 ### L5. ICX Syslog — Message Part Optional
-Entry syslog ICX tidak selalu punya `:message` setelah facility. Contoh:
+ICX syslog entries don't always have `:message` after facility. Example:
 ```
-Aug 6 13:53:08:I:COPY COMPLETED                # tanpa :message
+Aug 6 13:53:08:I:COPY COMPLETED                # without :message
 Aug 7 19:36:29:I:Security: SSH login by admin  # standard
 ```
-Regex `([^:]+):(.+)` gagal pada entry tanpa message. Gunakan colon opsional + message boleh kosong:
+Regex `([^:]+):(.+)` fails on entries without message. Use optional colon + message can be empty:
 ```python
-# ✅ CARA BENAR — colon opsional, message boleh empty
+# ✅ CORRECT WAY — optional colon, message can be empty
 m = re.match(r"(\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2}):(\w):([^:]+):?(.*)$", line)
 msg = m.group(4).strip() if m.group(4) else ""
 ```
@@ -419,13 +419,13 @@ msg = m.group(4).strip() if m.group(4) else ""
 
 ## DOCKER / DEPLOYMENT
 
-### Yang Di-Luar Docker (Volume Mount)
-| File | Alasan |
+### Outside Docker (Volume Mount)
+| File | Reason |
 |---|---|
-| `.env` | Credential, beda per environment |
-| `inventory/devices.yaml` | Device list khusus deployment |
+| `.env` | Credentials, different per environment |
+| `inventory/devices.yaml` | Deployment-specific device list |
 
-### Yang Di-Dalam Docker (COPY)
+### Inside Docker (COPY)
 - `server.py`, `adapters/`, `tools/`, `models/`, `inventory/manager.py`
 - `requirements.txt`
 - `.env.example`, `inventory/devices.example.yaml` (template)
@@ -443,33 +443,33 @@ backups/
 
 ---
 
-## CHECKLIST SEBELUM RELEASE
+## CHECKLIST BEFORE RELEASE
 
 ### Security
-- [x] Semua input SSH command di-validasi (`_validate_port`, `_validate_mac`, dll)
-- [x] `zone_id`, `wlan_id` di-validasi UUID sebelum URL construction
-- [x] Tidak ada hardcoded credentials
-- [x] Tidak ada password/token di log
-- [x] `.env` di `.gitignore`
-- [x] `backups/` di `.gitignore` (config backup berisi secret)
+- [x] All SSH command inputs validated (`_validate_port`, `_validate_mac`, etc.)
+- [x] `zone_id`, `wlan_id` UUID-validated before URL construction
+- [x] No hardcoded credentials
+- [x] No password/token in logs
+- [x] `.env` in `.gitignore`
+- [x] `backups/` in `.gitignore` (config backup contains secrets)
 
 ### Reliability
-- [x] SSH adapter punya retry logic (2-3 attempts + backoff)
-- [x] `vsz._request()` return error eksplisit, bukan `{}`
-- [x] Setiap tool function check `"error" in result`
-- [x] Structured logging di semua layer (adapter, tool, server)
-- [x] Session reuse di vSZ adapter (TTL-based)
+- [x] SSH adapter has retry logic (2-3 attempts + backoff)
+- [x] `vsz._request()` returns explicit error, not `{}`
+- [x] Every tool function checks `"error" in result`
+- [x] Structured logging in all layers (adapter, tool, server)
+- [x] Session reuse in vSZ adapter (TTL-based)
 
 ### Code Quality
-- [ ] Semua function ada type hints
-- [x] Regex pakai raw string `r''`
-- [x] Tidak ada code duplikat (DRY)
-- [x] Naming convention konsisten (snake_case, device_/ruckus_device_ namespace)
+- [ ] All functions have type hints
+- [x] Regex uses raw string `r''`
+- [x] No duplicate code (DRY)
+- [x] Consistent naming convention (snake_case, device_/ruckus_device_ namespace)
 
 ### Documentation
-- [x] `CHANGES.md` update dengan issue tracking
-- [x] `skills/ruckus.md` update untuk tool baru
-- [x] `README.md` tool count sinkron (81 tools)
+- [x] `CHANGES.md` updated with issue tracking
+- [x] `SKILL.md` updated for new tools
+- [x] `README.md` tool count synced (81 tools)
 - [x] 187 pytest tests pass (12 test files, mock adapters, zero real hardware)
 - [x] Tool count verified: 81 tools registered
 - [x] Integration tested vs production vSZ
@@ -477,22 +477,23 @@ backups/
 
 ---
 
-**Last updated**: 2026-08-12
+**Last updated**: 2026-08-13
 **Status**: Production-ready. All security checks passed. Full async. 81 tools. Rate limiting enabled (vSZ + ICX).
 
 ## Backlog — Future Development
 
 ### Recently Completed
-- **PoE port control** — `ruckus_device_poe_port(host, port, enable)`, toggle inline power without link interruption
+- **PoE port control** — `ruckus_device_poe_port(host, port, enable, priority, power_limit, power_by_class)`, toggle inline power without link interruption
+- **PoE per-port status** — `ruckus_device_poe_status(host, port)` — filterable PoE budget + per-port detail
 - **VLAN management** — `ruckus_device_vlan_create`/`delete`/`port` with VLAN spec parser, tagged/untagged ports, STP
 - **Port enable/disable** — `ruckus_device_port_state(host, port, enable)`, SSH config mode, confirm gate
+- **Dry-run preview** — All 4 ICX config tools support `dry_run=True`
 - **Rate limiting (vSZ + ICX)** — semaphore-based concurrency control (VSZ_RATE_LIMIT, ICX_RATE_LIMIT)
 - **ICX per-device credentials** — username/password in devices.yaml with `${ENV_VAR}` substitution
-- **dotenv load in inventory/manager.py** — ensures env var resolution for credential substitution
 
 ### High Priority
 - **WLAN delete** — `delete_wlan` via API
-- **Alarm lifecycle** — `alarm_ack`, `alarm_clear` (perlu admin user)
+- **Alarm lifecycle** — `alarm_ack`, `alarm_clear` (requires admin user)
 
 ### Medium Priority
 - **Docker rebuild** — docker-compose verify after async refactor
@@ -504,4 +505,3 @@ backups/
 - **Generic query tool** — flexible cross-domain query
 - **DHCP/VLAN pool tools** — list/get pool data
 - **Stats history** — time-series traffic stats
-
