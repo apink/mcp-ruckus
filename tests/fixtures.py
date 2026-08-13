@@ -130,7 +130,7 @@ SAMPLE_APS = [
         "location": "Building A Floor 3",
         "zoneName": "Campus",
         "zoneId": "zone-001",
-        "deviceIp": "203.0.113.301",
+        "deviceIp": "203.0.113.105",
         "channel24G": "6 (20MHz)",
         "channel5G": "40 (80MHz)",
         "airtime24G": 72,

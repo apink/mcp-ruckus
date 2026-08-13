@@ -52,6 +52,7 @@ server.py                    # FastMCP entry (SSE + streamable-http)
 - **Input validation**: every SSH/URL input validated via `_validate_*()` helpers
 - **Error format**: return `{"error": "...", "detail": "..."}`, never raise through tool boundary
 - **Destructive tools** require `confirm=True` gate; ICX config tools support `dry_run=True`
+- **Test fixtures**: mock-only, never real hardware. Use RFC 5737 TEST-NET IPs (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`), IPv6 `2001:db8::/32`, and locally-administered MACs (`aa:bb:cc:*`, `cc:dd:ee:*`). Never commit real/internal IPs, hostnames, or MACs.
 
 ## Key Files
 
