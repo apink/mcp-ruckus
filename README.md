@@ -240,10 +240,13 @@ pytest tests/ -q   # 187 unit tests, 12 files
 
 These are **unit tests** for the tools and adapters. They run against mock vSZ/ICX adapters — no real hardware and no live MCP client. They cover tool logic (input validation, command building, output parsing), not the end-to-end MCP connection to an agent.
 
-To smoke-test a real connection, start the server and either:
+You'll need `pytest` installed (it's already in the project dependencies). Run the tests after changing code or before releases.
 
-- register it in your agent (see [Connect your AI assistant](#connect-your-ai-assistant)), or
-- open the [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) with `npx @modelcontextprotocol/inspector`
+To quickly check that the server starts and responds:
+
+- Start the server: `python3 server.py`
+- Register it in your agent (see [Connect your AI assistant](#connect-your-ai-assistant)) and try a tool, or
+- Open the [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) with `npx @modelcontextprotocol/inspector` (requires Node.js)
 
 ## More docs
 
