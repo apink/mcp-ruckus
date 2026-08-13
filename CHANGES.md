@@ -3,6 +3,25 @@
 Semua perubahan signifikan pada proyek ini dicatat di sini.
 Format: [ISO date] — Deskripsi singkat + Detail teknis.
 
+## Release Notes
+
+| Tanggal | Versi / Topik | Ringkasan |
+|---|---|---|
+| 2026-08-12 | PoE per-port status + params | `ruckus_device_poe_status` (read-only, filter per port) + `ruckus_device_poe_port` tambah `priority`/`power_limit`/`power_by_class` |
+| 2026-08-12 | PoE port control | `ruckus_device_poe_port` — enable/disable PoE tanpa putus data link |
+| 2026-08-12 | Dry-run preview | Semua 4 tool config ICX dukung `dry_run=True` (preview tanpa SSH) |
+| 2026-08-12 | VLAN management | `vlan_create`, `vlan_delete`, `vlan_port` (single/range/multi) |
+| 2026-08-11 | Port control | `ruckus_device_port_state` — enable/disable port |
+| 2026-08-10 | Users + SSH | `ruckus_device_users`, `ruckus_device_ssh_status` |
+| 2026-08-10 | Syslog fix | Parser edge case + 99.9% parse rate |
+| 2026-08-06 | Resources + ARP + PoE + LLDP | `resources`, `arp_table`, `poe_status`, `lldp_neighbors` + rate limiting + per-device credentials |
+| 2026-08-06 | Safety gates | 7 destructive tools wajib `confirm=True` |
+| 2026-08-06 | 10 new tools | Traffic, alarms, domains, WLAN modify/toggle, reboot AP, disconnect client, controller stats |
+| 2026-08-05 | Async refactor | vSZ adapter full async (2.7x–3.7x speedup), 148 tests |
+| 2026-08-05 | Zone tree + 802.1X | `get_zones()` rewrite, `create_wlan` 802.1X, RADIUS |
+
+Detail teknis lengkap di bawah.
+
 ---
 
 ## 2026-08-12 — PoE Per-Port Status + PoE Port Enhancement

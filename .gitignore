@@ -10,3 +10,7 @@ venv/
 # Misc
 *.log
 tmp-data/
+
+# Personal notes (local only)
+notes/
+*.md.bak
