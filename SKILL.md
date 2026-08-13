@@ -1,3 +1,8 @@
+---
+name: ruckus-mcp
+description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 81 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
+---
+
 # Ruckus MCP Skill — 81 tools
 
 ## How to Install This Skill
@@ -6,14 +11,14 @@ This file is a ready-to-use AI agent skill for the Ruckus MCP server. Copy it to
 
 | Agent | Location |
 |---|---|
-| Kilo / opencode | `.opencode/skills/ruckus/SKILL.md` (project) or `~/.config/opencode/skills/ruckus/SKILL.md` (global) |
-| Claude (Agent Skills) | `~/.claude/skills/ruckus/SKILL.md` |
-| Cursor | `.cursor/skills/ruckus/SKILL.md` |
+| Hermes | `~/.hermes/profiles/<profile>/skills/ruckus/SKILL.md` |
+| OpenClaw | `~/.openclaw/skills/ruckus/SKILL.md` |
+| Claude Desktop | `~/.claude/skills/ruckus/SKILL.md` |
 
 Make sure the MCP server is running and registered in your agent before loading the skill:
 
 ```bash
-cp SKILL.md .opencode/skills/ruckus/SKILL.md   # opencode example
+mkdir -p ~/.claude/skills/ruckus && cp SKILL.md ~/.claude/skills/ruckus/SKILL.md   # Claude Desktop example
 ```
 
 ## Connection
