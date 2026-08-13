@@ -18,20 +18,27 @@ Complete tool list: [docs/TOOLS.md](docs/TOOLS.md)
 
 ## Quick Start
 
+Requirements: **Python 3.12+** (Docker is optional).
+
 ### Local
 
 ```bash
 git clone https://github.com/your-org/mcp-ruckus.git
 cd mcp-ruckus
-cp .env.example .env
-# Edit .env with your credentials
 
+# 1. Config — copy the templates and fill in your values
+cp .env.example .env
+cp inventory/devices.example.yaml inventory/devices.yaml   # only needed for ICX tools
+
+# 2. Install
 python3 -m venv venv && source venv/bin/activate
 pip install -e .        # or: pip install -r requirements.txt
 
-# Edit MCP_TRANSPORT in .env (sse / streamable-http)
+# 3. Run
 python3 server.py
 ```
+
+By default it binds to `0.0.0.0:8000` and serves SSE at `http://localhost:8000/sse`.
 
 ### Docker
 
@@ -53,12 +60,16 @@ docker compose up -d
 | `VSZ_API_VERSION` | API version (v10_0, v11_1) | `v11_1` |
 | `VSZ_RATE_LIMIT` | Max concurrent API requests | `10` |
 | `ICX_RATE_LIMIT` | Max concurrent SSH sessions per device | `5` |
+| `MCP_TRANSPORT` | Server transport (`sse` / `streamable-http`) | `sse` |
+| `MCP_HOST` | Bind address | `0.0.0.0` |
+| `MCP_PORT` | Server port | `8000` |
+| `LOG_LEVEL` | Log verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `INFO` |
 | `MCP_API_KEY` | API key for security middleware | - |
 | `MCP_ALLOWED_IPS` | Comma-separated allowed IPs | `10.0.0.0/8` |
 
 ### Device Inventory
 
-Create `inventory/devices.yaml` for ICX tools. `username`/`password` support `${ENV_VAR}` substitution or literal values:
+For ICX tools, create `inventory/devices.yaml` (copy `inventory/devices.example.yaml` to start). `username`/`password` support `${ENV_VAR}` substitution or literal values:
 
 ```yaml
 devices:
