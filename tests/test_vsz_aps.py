@@ -27,17 +27,17 @@ class TestApStatus:
     async def test_online_aps_have_status_up(self):
         result = await _ap_status()
         for ap in result:
-            if ap["ap_name"] != "FTIS-AP03-04":
+            if ap["ap_name"] != "AP-03-04":
                 assert ap["status"] == "up"
 
     async def test_disconnected_ap_has_raw_status(self):
         result = await _ap_status()
-        dc = [ap for ap in result if ap["ap_name"] == "FTIS-AP03-04"]
+        dc = [ap for ap in result if ap["ap_name"] == "AP-03-04"]
         assert len(dc) == 1
         assert dc[0]["status"] != "up"
 
     async def test_zone_filter(self):
-        result = await _ap_status(zone_id="FTI-Campus")
+        result = await _ap_status(zone_id="Campus")
         assert len(result) == 5
 
     async def test_limit(self):
@@ -47,9 +47,9 @@ class TestApStatus:
 
 class TestApDetail:
     async def test_known_ap(self):
-        result = await _ap_detail("FTIS-AP01-01")
+        result = await _ap_detail("AP-01-01")
         assert isinstance(result, dict)
-        assert result["ap_name"] == "FTIS-AP01-01"
+        assert result["ap_name"] == "AP-01-01"
         assert result["model"] == "R750"
 
     async def test_unknown_ap(self):
@@ -66,7 +66,7 @@ class TestApDown:
 
     async def test_disconnected_ap_found(self):
         result = await _ap_down()
-        assert result[0]["ap_name"] == "FTIS-AP03-04"
+        assert result[0]["ap_name"] == "AP-03-04"
 
 
 class TestApHighClientCount:
@@ -74,7 +74,7 @@ class TestApHighClientCount:
         result = await _ap_high_client_count()
         assert isinstance(result, list)
         assert len(result) == 1
-        assert result[0]["ap_name"] == "FTIS-AP03-05"
+        assert result[0]["ap_name"] == "AP-03-05"
 
     async def test_low_threshold(self):
         result = await _ap_high_client_count(threshold=20)
@@ -87,9 +87,9 @@ class TestApHighClientCount:
 
 class TestApNeighbors:
     async def test_single_ap(self):
-        result = await _ap_neighbors(ap_name="FTIS-AP01-01")
+        result = await _ap_neighbors(ap_name="AP-01-01")
         assert "error" not in result
-        assert result["ap"] == "FTIS-AP01-01"
+        assert result["ap"] == "AP-01-01"
         assert result["total_neighbors"] == 2
         assert "neighbors" in result
 
@@ -115,13 +115,13 @@ class TestApNeighbors:
 
 class TestApRadioStats:
     async def test_known_ap(self):
-        result = await _ap_radio_stats("FTIS-AP01-01")
+        result = await _ap_radio_stats("AP-01-01")
         assert isinstance(result, dict)
         assert "radios" in result
         assert len(result["radios"]) == 2
 
     async def test_radio_bands(self):
-        result = await _ap_radio_stats("FTIS-AP01-01")
+        result = await _ap_radio_stats("AP-01-01")
         bands = {r["band"] for r in result["radios"]}
         assert "2.4GHz" in bands
         assert "5GHz" in bands

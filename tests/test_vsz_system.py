@@ -24,13 +24,13 @@ class TestZoneStatus:
     async def test_zone_names_match(self):
         result = await _zone_status()
         names = {z["name"] for z in result}
-        assert "FTI-Campus" in names
-        assert "FTI-Lab" in names
+        assert "Campus" in names
+        assert "Lab" in names
 
 
 class TestZoneApList:
     async def test_returns_list_for_valid_zone(self):
-        result = await _zone_ap_list("zone-fti-001")
+        result = await _zone_ap_list("zone-001")
         assert isinstance(result, list)
         assert len(result) == 5
 
@@ -40,7 +40,7 @@ class TestZoneApList:
         assert len(result) == 0
 
     async def test_has_required_fields(self):
-        result = await _zone_ap_list("zone-fti-001")
+        result = await _zone_ap_list("zone-001")
         ap = result[0]
         assert "ap_name" in ap
         assert "status" in ap

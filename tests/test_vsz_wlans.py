@@ -9,12 +9,12 @@ pytestmark = pytest.mark.asyncio
 
 class TestSsidList:
     async def test_known_zone(self):
-        result = await _ssid_list("zone-fti-001")
+        result = await _ssid_list("zone-001")
         assert isinstance(result, list)
         assert len(result) == 3
 
     async def test_has_required_fields(self):
-        result = await _ssid_list("zone-fti-001")
+        result = await _ssid_list("zone-001")
         wlan = result[0]
         assert "ssid" in wlan
         assert "name" in wlan
@@ -36,22 +36,22 @@ class TestSsidListAll:
 
 class TestSsidDetail:
     async def test_known_wlan(self):
-        result = await _ssid_detail("wlan-001", "zone-fti-001")
+        result = await _ssid_detail("wlan-001", "zone-001")
         assert isinstance(result, dict)
-        assert result["ssid"] == "FTI-Secure"
+        assert result["ssid"] == "Secure"
         assert "encryption_method" in result
         assert "vlan_id" in result
 
 
 class TestRadiusList:
     async def test_auth_only(self):
-        result = await _radius_list("zone-fti-001", for_accounting="auth_only")
+        result = await _radius_list("zone-001", for_accounting="auth_only")
         assert isinstance(result, list)
         assert len(result) == 1
-        assert result[0]["name"] == "FTI-RADIUS"
+        assert result[0]["name"] == "RADIUS"
 
     async def test_all(self):
-        result = await _radius_list("zone-fti-001")
+        result = await _radius_list("zone-001")
         assert isinstance(result, list)
         assert len(result) >= 1
 
@@ -96,7 +96,7 @@ class TestCreateWlan:
 
     async def test_successful_create(self):
         result = await _create_wlan(
-            zone_id="zone-fti-001", name="Test-WLAN", ssid="Test-SSID",
+            zone_id="zone-001", name="Test-WLAN", ssid="Test-SSID",
             encryption="WPA2", passphrase="testpass123", confirm=True,
         )
         assert result["status"] == "created"

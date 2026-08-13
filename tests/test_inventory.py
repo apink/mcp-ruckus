@@ -8,7 +8,7 @@ class TestListDevices:
     def test_returns_devices(self):
         result = list_devices()
         assert len(result) == 2
-        assert result[0]["host"] == "10.60.172.1"
+        assert result[0]["host"] == "203.0.113.1"
 
     def test_device_fields(self):
         result = list_devices()
@@ -23,7 +23,7 @@ class TestAllDeviceInfo:
     def test_returns_all(self):
         result = all_device_info()
         assert len(result) == 2
-        assert result[0]["host"] == "10.60.172.1"
+        assert result[0]["host"] == "203.0.113.1"
 
 
 class TestAllDeviceStatus:
@@ -34,7 +34,7 @@ class TestAllDeviceStatus:
 
 class TestDevicesByLocation:
     def test_matching_location(self):
-        result = devices_by_location("gedung fti selatan")
+        result = devices_by_location("building a south")
         assert len(result) == 2
 
     def test_no_match(self):
@@ -46,9 +46,9 @@ class TestDevicesByRole:
     def test_distribution(self):
         result = devices_by_role("distribution")
         assert len(result) == 1
-        assert result[0]["host"] == "10.60.172.1"
+        assert result[0]["host"] == "203.0.113.1"
 
     def test_access(self):
         result = devices_by_role("access")
         assert len(result) == 1
-        assert result[0]["host"] == "10.60.172.3"
+        assert result[0]["host"] == "203.0.113.3"

@@ -76,11 +76,11 @@ class MockVsZRestAdapter:
     async def get_ap_neighbors(self, mac: str) -> dict[str, Any]:
         return {
             "list": [
-                {"deviceName": "FTIS-AP01-02", "apMac": "aa:bb:cc:11:22:02", "model": "R750",
-                 "ip": "10.60.172.102", "channel24G": "1 (20MHz)", "channel5G": "149 (80MHz)",
+                {"deviceName": "AP-01-02", "apMac": "aa:bb:cc:11:22:02", "model": "R750",
+                 "ip": "203.0.113.102", "channel24G": "1 (20MHz)", "channel5G": "149 (80MHz)",
                  "snr24G": "25 dB", "snr5G": "30 dB"},
-                {"deviceName": "FTIS-AP02-03", "apMac": "aa:bb:cc:11:33:03", "model": "R650",
-                 "ip": "10.60.172.201", "channel24G": "11 (20MHz)", "channel5G": "52 (40MHz)",
+                {"deviceName": "AP-02-03", "apMac": "aa:bb:cc:11:33:03", "model": "R650",
+                 "ip": "203.0.113.201", "channel24G": "11 (20MHz)", "channel5G": "52 (40MHz)",
                  "snr24G": "15 dB", "snr5G": "20 dB"},
             ]
         }
@@ -95,7 +95,7 @@ class MockVsZRestAdapter:
         return {"name": "root", "zones": list(SAMPLE_ZONES)}
 
     async def get_wlans_by_zone(self, zone_id: str) -> list[dict[str, Any]]:
-        if zone_id == "zone-fti-001":
+        if zone_id == "zone-001":
             return list(SAMPLE_WLANS_ZONE1)
         return []
 
@@ -103,9 +103,9 @@ class MockVsZRestAdapter:
         return dict(SAMPLE_WLAN_DETAIL)
 
     async def get_radius_servers(self, zone_id: str, for_accounting: bool | None = None) -> list[dict[str, Any]]:
-        return [{"id": "radius-001", "name": "FTI-RADIUS", "serviceType": "ActiveDirectory",
-                 "description": "FTI Auth Server", "zoneId": zone_id,
-                 "primary": {"ip": "10.60.172.10"}, "secondary": {}}]
+        return [{"id": "radius-001", "name": "RADIUS", "serviceType": "ActiveDirectory",
+                 "description": "Auth Server", "zoneId": zone_id,
+                 "primary": {"ip": "203.0.113.10"}, "secondary": {}}]
 
     async def create_wlan(self, zone_id: str, payload: dict[str, Any], wlan_type: str = "standard") -> dict[str, Any]:
         return {"id": "wlan-new-001", "status": "created", "ssid": payload.get("ssid", "")}
@@ -204,7 +204,7 @@ class MockRuckusDeviceDriver:
         return [dict(i, util_pct=50, pps_in=1000, pps_out=800) for i in SAMPLE_INTERFACES]
 
     def get_ip_addresses(self) -> list[dict[str, Any]]:
-        return [{"interface": "ve 100", "ip": "10.60.172.1", "mask": "255.255.255.0"}]
+        return [{"interface": "ve 100", "ip": "203.0.113.1", "mask": "255.255.255.0"}]
 
     def get_ip_routes(self, destination: str | None = None) -> dict[str, Any]:
         routes = list(SAMPLE_IP_ROUTES["routes"])
@@ -252,16 +252,16 @@ class MockRuckusDeviceDriver:
         }
         if port:
             if port not in ("1/1/1", "1/1/2"):
-                return {"host": "10.60.172.1", "port": port, "status": None}
-            return {"host": "10.60.172.1", "port": port, "status": entry}
-        return {"host": "10.60.172.1",
+                return {"host": "203.0.113.1", "port": port, "status": None}
+            return {"host": "203.0.113.1", "port": port, "status": entry}
+        return {"host": "203.0.113.1",
                 "power_capacity_total_mw": 740000,
                 "power_capacity_free_mw": 740000,
                 "ports": [entry]}
 
     def get_arp_table(self) -> list[dict[str, Any]]:
         return [
-            {"ip": "10.60.172.81", "mac": "aabb.ccdd.ee01", "type": "Dynamic",
+            {"ip": "203.0.113.81", "mac": "aabb.ccdd.ee01", "type": "Dynamic",
              "age": 2, "port": "1/1/23", "status": "Valid"},
         ]
 
@@ -273,18 +273,18 @@ class MockRuckusDeviceDriver:
 
     def get_ssh_status(self) -> dict[str, Any]:
         return {
-            "host": "10.60.172.1", "ssh_version": "v2.0", "ssh_enabled": True,
+            "host": "203.0.113.1", "ssh_version": "v2.0", "ssh_enabled": True,
             "host_key": "RSA(2048)", "sessions": [
                 {"direction": "inbound", "connection": 3, "version": "SSH-2",
                  "encryption": "aes128-ctr", "username": "admin",
                  "hmac": "hmac-sha1", "server_hostkey": "ssh-rsa",
-                 "source_ip": "10.60.172.177"},
+                 "source_ip": "203.0.113.177"},
             ],
         }
 
     def get_device_resources(self) -> dict[str, Any]:
         return {
-            "host": "10.60.172.1",
+            "host": "203.0.113.1",
             "cpus": [
                 {"cpu_id": 0, "pct_busy_1sec": 2, "pct_busy_5sec": 2,
                  "pct_busy_60sec": 2, "pct_busy_300sec": 1},
@@ -301,7 +301,7 @@ class MockRuckusDeviceDriver:
 
     def get_cable_diag(self, port: str) -> dict[str, Any]:
         return {
-            "host": "10.60.172.1", "port": port, "pairs": [
+            "host": "203.0.113.1", "port": port, "pairs": [
                 {"local_pair": "A", "remote_pair": "B", "pair_status": "terminated"},
                 {"local_pair": "B", "remote_pair": "A", "pair_status": "terminated"},
                 {"local_pair": "C", "remote_pair": "D", "pair_status": "terminated"},
@@ -313,15 +313,15 @@ class MockRuckusDeviceDriver:
                    dedup: bool = True) -> dict[str, Any]:
         entries = [
             {"timestamp": "Aug  7 09:32:15", "severity": "I", "facility": "Security",
-             "message": "SSH login by admin from src IP 10.60.172.177"},
+             "message": "SSH login by admin from src IP 203.0.113.177"},
             {"timestamp": "Aug  7 09:31:05", "severity": "E", "facility": "STP",
              "message": "Port 1/1/2 BLOCKING topology change"},
         ]
-        return {"host": "10.60.172.1", "returned": 2, "total": 2,
+        return {"host": "203.0.113.1", "returned": 2, "total": 2,
                 "severity_filter": severity or "all", "entries": entries}
 
     def get_optic_info(self, port: str) -> dict[str, Any]:
-        return {"host": "10.60.172.1", "port": port,
+        return {"host": "203.0.113.1", "port": port,
                 "temperature": 35.4, "temperature_unit": "C",
                 "voltage": 3.31, "voltage_unit": "V",
                 "tx_power": 0.68, "tx_power_unit": "dBm",
@@ -342,7 +342,7 @@ class MockRuckusDeviceDriver:
 
     def get_device_time(self) -> dict[str, Any]:
         return {
-            "host": "10.60.172.1",
+            "host": "203.0.113.1",
             "current_time": "Fri Aug 07 2026 14:34:13.227 GMT+07",
             "ntp_synced": False,
             "ntp_status": "unsynchronized — no reference clock",
@@ -360,7 +360,7 @@ class MockRuckusDeviceDriver:
 
     def get_spanning_tree(self, vlan: str | None = None) -> dict[str, Any]:
         return {
-            "host": "10.60.172.1", "stp_configured": True, "vlan": 1,
+            "host": "203.0.113.1", "stp_configured": True, "vlan": 1,
             "root_id": "8000aabbccddeeff", "root_cost": 0, "root_port": "Root",
             "bridge_priority": "8000", "bridge_address": "aabbccddeeff",
             "ports": [
@@ -378,21 +378,21 @@ class MockRuckusDeviceDriver:
     def get_access_lists(self, name: str | None = None, brief: bool = False) -> dict[str, Any]:
         if brief:
             return {
-                "host": "10.60.172.1",
+                "host": "203.0.113.1",
                 "acls": [
                     {"type": "Standard", "name": "ADMINSSH", "entries": 8},
                     {"type": "Extended", "name": "INET-ONLY", "entries": 5},
                 ],
             }
         return {
-            "host": "10.60.172.1",
+            "host": "203.0.113.1",
             "acls": [
                 {"type": "Standard", "name": "ADMINSSH", "entries": 8, "rules": [
-                    {"sequence": 10, "action": "permit", "match": "host 10.60.172.4"},
-                    {"sequence": 20, "action": "permit", "match": "host 10.60.172.215"},
+                    {"sequence": 10, "action": "permit", "match": "host 203.0.113.4"},
+                    {"sequence": 20, "action": "permit", "match": "host 203.0.113.215"},
                 ]},
                 {"type": "Extended", "name": "INET-ONLY", "entries": 5, "rules": [
-                    {"sequence": 10, "action": "permit", "match": "icmp 10.60.0.0 0.0.255.255 host 10.60.255.80"},
+                    {"sequence": 10, "action": "permit", "match": "icmp 203.0.113.0 0.0.255.255 host 203.0.113.80"},
                     {"sequence": 500, "action": "permit", "match": "ip any any"},
                 ]},
             ],
@@ -411,7 +411,7 @@ class MockRuckusDeviceDriver:
         return {"target": ip, "success": True, "rtt_avg_ms": 2.0, "packets_sent": 5, "packets_received": 5}
 
     def device_traceroute(self, ip: str, source_ip: str | None = None, max_ttl: int = 30) -> list[dict[str, Any]]:
-        return [{"hop": 1, "ip": "10.60.172.254", "rtt_ms": 1.0}, {"hop": 2, "ip": ip, "rtt_ms": 2.0}]
+        return [{"hop": 1, "ip": "203.0.113.254", "rtt_ms": 1.0}, {"hop": 2, "ip": ip, "rtt_ms": 2.0}]
 
     def device_traceroute_ipv6(self, ip: str, max_ttl: int = 30) -> list[dict[str, Any]]:
         return [{"hop": 1, "ip": "fe80::1", "rtt_ms": 1.0}]
@@ -424,9 +424,9 @@ class MockRuckusDeviceDriver:
     ) -> dict[str, Any]:
         state = "enabled" if enable else "disabled"
         if dry_run:
-            return {"host": "10.60.172.1", "port": port, "dry_run": True,
+            return {"host": "203.0.113.1", "port": port, "dry_run": True,
                     "state": state, "commands": ["conf t", f"int eth {port}", state, "end"]}
-        return {"host": "10.60.172.1", "port": port, "state": state}
+        return {"host": "203.0.113.1", "port": port, "state": state}
 
     def create_vlan(
         self, vlan_spec: str, name: str | None = None,
@@ -437,9 +437,9 @@ class MockRuckusDeviceDriver:
         from adapters.device_ssh import _parse_vlan_spec
         vlan_ids = _parse_vlan_spec(vlan_spec)
         if dry_run:
-            return {"host": "10.60.172.1", "vlan_spec": vlan_spec,
+            return {"host": "203.0.113.1", "vlan_spec": vlan_spec,
                     "dry_run": True, "vlan_ids": vlan_ids, "commands": ["conf t", "...", "end"]}
-        return {"host": "10.60.172.1", "vlan_spec": vlan_spec,
+        return {"host": "203.0.113.1", "vlan_spec": vlan_spec,
                 "vlan_ids": vlan_ids, "created": True}
 
     def delete_vlan(
@@ -448,9 +448,9 @@ class MockRuckusDeviceDriver:
         from adapters.device_ssh import _parse_vlan_spec
         vlan_ids = _parse_vlan_spec(vlan_spec)
         if dry_run:
-            return {"host": "10.60.172.1", "vlan_spec": vlan_spec,
+            return {"host": "203.0.113.1", "vlan_spec": vlan_spec,
                     "dry_run": True, "vlan_ids": vlan_ids, "commands": ["conf t", "no vlan ...", "end"]}
-        return {"host": "10.60.172.1", "vlan_spec": vlan_spec,
+        return {"host": "203.0.113.1", "vlan_spec": vlan_spec,
                 "vlan_ids": vlan_ids, "deleted": True}
 
     def modify_vlan_port(
@@ -460,9 +460,9 @@ class MockRuckusDeviceDriver:
         from adapters.device_ssh import _parse_vlan_spec
         vlan_ids = _parse_vlan_spec(vlan_spec)
         if dry_run:
-            return {"host": "10.60.172.1", "port": port, "action": action,
+            return {"host": "203.0.113.1", "port": port, "action": action,
                     "dry_run": True, "vlan_ids": vlan_ids, "commands": ["conf t", "...", "end"]}
-        return {"host": "10.60.172.1", "port": port, "action": action,
+        return {"host": "203.0.113.1", "port": port, "action": action,
                 "vlan_spec": vlan_spec, "vlan_ids": vlan_ids, "success": True}
 
     def set_poe_port(
@@ -474,9 +474,9 @@ class MockRuckusDeviceDriver:
     ) -> dict[str, Any]:
         action = "disable" if not enable else "enable"
         if dry_run:
-            return {"host": "10.60.172.1", "port": port, "dry_run": True,
+            return {"host": "203.0.113.1", "port": port, "dry_run": True,
                     "action": action, "commands": ["conf t", "...", "end"]}
-        return {"host": "10.60.172.1", "port": port, "action": action,
+        return {"host": "203.0.113.1", "port": port, "action": action,
                 "success": True}
 
 
