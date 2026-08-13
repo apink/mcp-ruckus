@@ -27,15 +27,12 @@ All user inputs are validated before processing:
 
 ### Credential Management
 - No hardcoded credentials in source code
-- vSZ: credentials loaded from `.env` environment variables
-- ICX: credentials loaded from `inventory/devices.yaml` (field `username`/`password`)
-- ICX devices.yaml supports `${ENV_VAR}` substitution — bare `.env` vars, not in source
+- vSZ: credentials from `.env`; ICX: from `inventory/devices.yaml` (supports `${ENV_VAR}` substitution)
 - `.env` and `inventory/devices.yaml` are gitignored by default
+- Implementation rules: [CONTRIBUTING.md §S4](.github/CONTRIBUTING.md)
 
 ### Rate Limiting
-- vSZ API: `asyncio.Semaphore` — max concurrent requests (default: 10, config: `VSZ_RATE_LIMIT`)
-- ICX SSH: `threading.BoundedSemaphore` per-device — max concurrent sessions per switch (default: 5, config: `ICX_RATE_LIMIT`)
-- Prevents controller/switch overload when multiple tools called simultaneously
+Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/switch overload when multiple tools are called simultaneously. Defaults: `VSZ_RATE_LIMIT=10`, `ICX_RATE_LIMIT=5`. Implementation details: [CONTRIBUTING.md §R5](.github/CONTRIBUTING.md)
 
 ### Session Management
 - vSZ session reuse with TTL (600 seconds)

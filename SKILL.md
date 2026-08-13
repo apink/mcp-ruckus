@@ -24,6 +24,8 @@ cp SKILL.md .opencode/skills/ruckus/SKILL.md   # opencode example
 
 ## Tool Summary
 
+Full descriptions in [docs/TOOLS.md](docs/TOOLS.md).
+
 ```
 vSZ (31): ap_status, ap_detail, ap_radio_stats, ap_down, client_search, ap_high_client_count,
           zone_status, zone_ap_list, license_status, radius_list, ssid_list, ssid_list_all,
