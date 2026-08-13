@@ -19,31 +19,49 @@ Dangerous input like `1/1/1; enable; configure terminal` can be executed on the 
 import re
 
 # Pre-compiled validators (at top of file, not inline)
-PORT_RE = re.compile(r'^\d+/\d+/\d+$')          # Format: 1/2/3
-MAC_RE = re.compile(r'^[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}$')  # d4c1.9e32.2c48
-IPV4_RE = re.compile(r'^\d{1,3}(\.\d{1,3}){3}$')  # 192.168.1.1
-UUID_RE = re.compile(r'^[0-9a-fA-F-]{36}$')       # zone_id, wlan_id
+PORT_RE = re.compile(r"^\d+/\d+/\d+$")          # Format: 1/2/3
+MAC_DOT_RE = re.compile(r"^[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}$")  # d4c1.9e32.2c48
+MAC_COLON_RE = re.compile(r"^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$")            # d4:c1:9e:32:2c:48
+IPV4_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")  # 192.168.1.1
+IPV6_RE = re.compile(r"^[0-9a-fA-F:]+$")          # 2001:db8::1
+ROUTE_DEST_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}(/\d{1,2})?$")        # 10.0.0.0/24
+ROUTE_DEST_IPV6_RE = re.compile(r"^[0-9a-fA-F:]+(/\d{1,3})?$")          # 2001:db8::/32
 
 def _validate_port(port: str) -> str:
     if not PORT_RE.match(port):
-        raise ValueError(f"Invalid port format: {port}")
+        raise ValueError(f"Invalid port format (expected x/y/z): {port!r}")
     return port
 
 def _validate_mac(mac: str) -> str:
-    if not MAC_RE.match(mac):
-        raise ValueError(f"Invalid MAC format: {mac}")
+    if not (MAC_DOT_RE.match(mac) or MAC_COLON_RE.match(mac)):
+        raise ValueError(f"Invalid MAC format: {mac!r}")
     return mac
 
 def _validate_ipv4(ip: str) -> str:
     if not IPV4_RE.match(ip):
-        raise ValueError(f"Invalid IPv4 format: {ip}")
+        raise ValueError(f"Invalid IPv4 format: {ip!r}")
+    parts = ip.split(".")
+    if any(not (0 <= int(p) <= 255) for p in parts):
+        raise ValueError(f"Invalid IPv4 octet range: {ip!r}")
     return ip
 
-def _validate_uuid(value: str) -> str:
-    if not UUID_RE.match(value):
-        raise ValueError(f"Invalid UUID format: {value}")
-    return value
+def _validate_ipv6(ip: str) -> str:
+    if not IPV6_RE.match(ip):
+        raise ValueError(f"Invalid IPv6 format: {ip!r}")
+    return ip
+
+def _validate_ports_spec(ports_spec: str) -> str:
+    """Validate port list spec; keywords 'to'/'ethernet' allowed."""
+    if not ports_spec.strip():
+        return ""
+    for token in ports_spec.strip().split():
+        if token.lower() in ("to", "ethernet"):
+            continue
+        _validate_port(token)
+    return ports_spec
 ```
+
+> **TODO (gap)**: `_validate_uuid()` for vSZ `zone_id`/`wlan_id` is documented as a rule but **not yet implemented** — see S2.
 
 **Implementation in SSH adapter**:
 ```python
@@ -58,10 +76,13 @@ output = conn.send_command_timing(f"ping {ip} source {source}")
 
 **Checklist for every command using f-string**:
 - [x] Port: `_validate_port()` — regex `^\d+/\d+/\d+$`
-- [x] MAC: `_validate_mac()` — regex dot format
-- [x] IPv4: `_validate_ipv4()` — 4 octets
+- [x] MAC: `_validate_mac()` — dot + colon format
+- [x] IPv4: `_validate_ipv4()` — 4 octets + range 0-255
+- [x] IPv6: `_validate_ipv6()` — hex + colons only
 - [x] VLAN ID: `int()` cast + range check (1-4094)
 - [x] Source IP: `_validate_ipv4()`
+- [x] Port list: `_validate_ports_spec()` — `to`/`ethernet` keywords
+- [ ] UUID: `_validate_uuid()` — **not yet implemented**
 
 ---
 
@@ -70,6 +91,15 @@ output = conn.send_command_timing(f"ping {ip} source {source}")
 **Issue**: `zone_id` and `wlan_id` directly to URL without validation.
 Can manipulate REST API path.
 
+**Current status**: NOT yet implemented. `get_wlan_detail()` currently constructs the URL directly:
+
+```python
+# ⚠️ CURRENT (gap) — no UUID validation
+async def get_wlan_detail(self, zone_id: str, wlan_id: str) -> dict:
+    return await self._request(f"/rkszones/{zone_id}/wlans/{wlan_id}")
+```
+
+**Target implementation**:
 ```python
 # ✅ CORRECT WAY — validate UUID before URL construction
 def get_wlan_detail(self, zone_id: str, wlan_id: str) -> dict:
@@ -126,18 +156,30 @@ password = "admin123"
 User/agent thinks no data, but actually error.
 
 ```python
-# ✅ CORRECT WAY — return explicit error
-def _request(self, path, method="GET", payload=None):
-    try:
-        resp = httpx.post(url, ...)
-        resp.raise_for_status()
-        return resp.json()
-    except httpx.HTTPStatusError as exc:
-        logger.error(f"vSZ API {method} {path} failed: {exc.response.status_code}")
-        return {"error": f"http_{exc.response.status_code}", "detail": str(exc)}
-    except httpx.HTTPError as exc:
-        logger.error(f"vSZ API {method} {path} network error: {exc}")
-        return {"error": "network_error", "detail": str(exc)}
+# ✅ CORRECT WAY — return explicit error (async)
+async def _request(self, path, method="GET", payload=None, params=None):
+    async with self._semaphore:
+        if not self._service_ticket or (time.time() - self._login_time >= self.SESSION_TTL):
+            await self._ensure_login()
+        if not self._service_ticket:
+            return {"error": "not_authenticated"}
+        url = f"{self.base_url}{self.api_path}{path}?serviceTicket={self._service_ticket}"
+        try:
+            resp = await self._client.get(url, headers=...)  # or post/put/patch/delete
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 401 and self.config.api_token and not self._token_failed:
+                self._token_failed = True
+                self._service_ticket = None
+                await self._ensure_login()
+                if self._service_ticket:
+                    return await self._request(path, method=method, payload=payload, params=params)
+            logger.error(f"vSZ API {method} {path} HTTP error {exc.response.status_code}")
+            return {"error": f"http_{exc.response.status_code}", "detail": str(exc.response.text)}
+        except httpx.HTTPError as exc:
+            logger.error(f"vSZ API {method} {path} network error: {exc}")
+            return {"error": "network_error", "detail": str(exc)}
 
 # ❌ FORBIDDEN — silent empty return
 except httpx.HTTPError:
@@ -170,28 +212,38 @@ def some_tool(param):
 
 Without retry, tool returns error for temporary issues.
 
+Retry logic is **inline** in `_connect()` (not a separate method):
+
 ```python
-import time
+# adapters/device_ssh.py — _connect()
+sem = self._get_semaphore(self.host)
+acquired = sem.acquire(blocking=False)   # non-blocking — fail fast
+if not acquired:
+    raise RuntimeError(f"ICX_RATE_LIMIT reached for {self.host}")
 
-def _connect_with_retry(self, max_retries=2, backoff=1.5):
-    """Connect SSH with retry and exponential backoff."""
-    last_exc = None
-    for attempt in range(max_retries + 1):
-        try:
-            return self._connect()
-        except (NetmikoTimeoutException, SSHException) as exc:
-            last_exc = exc
-            if attempt < max_retries:
-                logger.warning(f"SSH attempt {attempt+1} failed: {exc}, retrying...")
-                time.sleep(backoff ** attempt)
-    raise last_exc
-
-# Usage in every method:
-def get_device_info(self):
+max_retries = 2
+backoff = 1.5
+for attempt in range(max_retries + 1):
     try:
-        with self._connect_with_retry() as conn:
-            output = conn.send_command("show version", read_timeout=20)
-        ...
+        conn = ConnectHandler(
+            device_type="ruckus_fastiron",
+            host=self.host, username=self.username, password=self.password,
+            timeout=15, global_delay_factor=2, session_log="session.log",
+        )
+        # monkey-patch disconnect to auto-release semaphore
+        _orig_disconnect = conn.disconnect
+        def _wrapped_disconnect():
+            _orig_disconnect()
+            sem.release()
+        conn.disconnect = _wrapped_disconnect
+        return conn
+    except (NetmikoTimeoutException, SSHException) as exc:
+        if attempt < max_retries:
+            logger.warning("SSH attempt %d/%d failed for %s: %s, retrying...",
+                           attempt + 1, max_retries + 1, self.host, exc)
+            time.sleep(backoff ** attempt)
+        else:
+            raise
 ```
 
 ---
@@ -291,9 +343,8 @@ ICX_RATE_LIMIT=5    # ICX SSH per-device concurrent (default 5)
 ```
 
 **Behavior:**
-- Requests queue (async for vSZ, blocking for ICX) — no error
-- vSZ: single semaphore total (bottleneck at controller)
-- ICX: single semaphore per device (100 switches = 100 independent semaphores)
+- vSZ: async semaphore — requests queue and wait (no error)
+- ICX: **non-blocking** `acquire(blocking=False)` — if all slots in use, raises `RuntimeError` immediately (fail fast, agent can retry)
 
 ---
 
@@ -394,13 +445,15 @@ body = {
 ```
 
 ### L4. Infinite Recursion — Import Shadowing
+When a tool function name matches a helper name, alias the import to avoid recursion:
 ```python
 # ✅ Alias import with prefix _
-from tools.management import ap_status as _ap_status
+from tools.helper import ap_status as _ap_status
 @mcp.tool()
 def ap_status():        # Tool name remains
     return _ap_status() # Call via alias
 ```
+> Historical note: `tools/management.py` (1669 lines, deprecated) was deleted during async refactor.
 
 ### L5. ICX Syslog — Message Part Optional
 ICX syslog entries don't always have `:message` after facility. Example:
@@ -446,8 +499,8 @@ backups/
 ## CHECKLIST BEFORE RELEASE
 
 ### Security
-- [x] All SSH command inputs validated (`_validate_port`, `_validate_mac`, etc.)
-- [x] `zone_id`, `wlan_id` UUID-validated before URL construction
+- [x] All SSH command inputs validated (`_validate_port`, `_validate_mac`, `_validate_ipv4`, `_validate_ipv6`, `_validate_ports_spec`)
+- [ ] `zone_id`, `wlan_id` UUID-validated before URL construction — **TODO (not yet implemented)**
 - [x] No hardcoded credentials
 - [x] No password/token in logs
 - [x] `.env` in `.gitignore`
@@ -478,7 +531,7 @@ backups/
 ---
 
 **Last updated**: 2026-08-13
-**Status**: Production-ready. All security checks passed. Full async. 81 tools. Rate limiting enabled (vSZ + ICX).
+**Status**: Production-ready with 1 known gap: vSZ UUID validation not yet implemented (see S2). Full async. 81 tools. Rate limiting enabled (vSZ + ICX).
 
 ## Backlog — Future Development
 
@@ -492,6 +545,7 @@ backups/
 - **ICX per-device credentials** — username/password in devices.yaml with `${ENV_VAR}` substitution
 
 ### High Priority
+- **UUID validation** — implement `_validate_uuid()` in `adapters/vsz.py`, add to `get_wlan_detail`/`modify_wlan`/`create_wlan`/`enable_disable_wlan` (S2 gap)
 - **WLAN delete** — `delete_wlan` via API
 - **Alarm lifecycle** — `alarm_ack`, `alarm_clear` (requires admin user)
 
