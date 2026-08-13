@@ -1,7 +1,7 @@
 # Changelog — MCP Ruckus
 
-Semua perubahan signifikan pada proyek ini dicatat di sini.
-Format: [ISO date] — Deskripsi singkat + Detail teknis.
+All significant changes to this project are recorded here.
+Format: [ISO date] — Short description + technical details.
 
 ## Release Notes
 
@@ -114,7 +114,7 @@ Complete technical details below.
 - **File:** `adapters/device_ssh.py`, `tools/icx_device.py`
 - **Tool:** `ruckus_device_users(host)`
 - **Command:** `show users`
-- **Parser:** Local user accounts — username, encrypt, privilege, status, expire time. Password hash **tidak diekspos** (security)
+- **Parser:** Local user accounts — username, encrypt, privilege, status, expire time. Password hash is **not exposed** (security)
 - **Live-tested:** 2 switches (development + access) — local user accounts verified
 - **Tool count:** 73 → 74 tools
 
@@ -122,14 +122,14 @@ Complete technical details below.
 
 - **File:** `adapters/device_ssh.py`, `tools/icx_device.py`
 - **Tool:** `ruckus_device_ssh_status(host)`
-- **Command:** `show ip ssh` — `show ssh` **invalid** di firmware 08.0.x (Lessons: dipakai `show ip ssh`)
+- **Command:** `show ip ssh` — `show ssh` is **invalid** on firmware 08.0.x (Lesson: use `show ip ssh`)
 - **Parser:** SSH version + enabled + host key + per-session (direction, connection, version, encryption, username, HMAC, source IP)
 - **Live-tested:** 2 switches — active sessions + hostkey RSA(2048) verified
 - **Tool count:** 74 → 75 tools
 
 ### Cleanup
 
-- **Dead code removed:** blok `get_poe_status` duplikat (unreachable) di dalam `get_arp_table` dari sesi debug terputus
+- **Dead code removed:** duplicate `get_poe_status` block (unreachable) inside `get_arp_table` from an interrupted debug session
 - **Tests:** +5 (TestUsers, TestSshStatus) — 155 → 160 pytest pass
 - **Docs:** README (75 tools, ICX 35), skills/ruckus.md (75 tools + SSH/login audit workflow + pitfalls `show ssh` invalid), DEVELOPMENT_GUIDELINES.md
 
@@ -140,11 +140,11 @@ Complete technical details below.
 ### Syslog parser edge case handling
 
 - **File:** `adapters/device_ssh.py` (line 857)
-- **Issue:** Regex `([^:]+):(.+)` gagal pada entry tanpa message (format: `timestamp:severity:facility`)
-- **Examples gagal:** `Aug 6 17:12:05:N:SSH Server session 1 received key-exchange`, `Aug 6 13:53:08:I:COPY COMPLETED`
-- **Fix:** Regex → `([^:]+):?(.*)$` (opsional colon, message boleh empty)
-- **Hasil:** Parsing 3422→3460/3461 entries (99.9%)
-- **Tambahan:** Filter header line `(4000 lines):`
+- **Issue:** Regex `([^:]+):(.+)` fails on entries without a message (format: `timestamp:severity:facility`)
+- **Failing examples:** `Aug 6 17:12:05:N:SSH Server session 1 received key-exchange`, `Aug 6 13:53:08:I:COPY COMPLETED`
+- **Fix:** Regex → `([^:]+):?(.*)$` (optional colon, message may be empty)
+- **Result:** Parsing 3422→3460/3461 entries (99.9%)
+- **Also:** Filter the header line `(4000 lines):`
 - **Code style:** Ruff fixes — MAC_COLON_RE wrap, rate_in/rate_out regex line split, variable `l`→`ln`
 - **Tests:** 155/155 pytest pass
 
@@ -193,19 +193,19 @@ Complete technical details below.
 
 - **vSZ API (`adapters/vsz.py`):** `asyncio.Semaphore` — default 10 concurrent, config via `VSZ_RATE_LIMIT`
 - **ICX SSH (`adapters/device_ssh.py`):** `threading.BoundedSemaphore` per-device — default 5 concurrent, config via `ICX_RATE_LIMIT`
-- **ICX semaphore release:** monkey-patch `ConnectHandler.disconnect()` untuk auto-release setelah `with conn:` selesai
-- **Efek:** Mencegah overload vSZ controller dan ICX management plane saat tool dipanggil bersamaan
+- **ICX semaphore release:** monkey-patch `ConnectHandler.disconnect()` to auto-release after the `with conn:` block completes
+- **Effect:** Prevents overloading the vSZ controller and ICX management plane when tools are called concurrently
 
 ### ICX Per-Device Credentials (devices.yaml)
 
 - **File:** `models/ruckus.py`, `adapters/device_ssh.py`, `inventory/manager.py`
-- **Mekanisme:** `username` / `password` literal langsung di `devices.yaml`
-- **Env var substitution:** `${VAR_NAME}` di nilai YAML → resolve dari `.env` saat load
-- **Unknown env var:** `KeyError` langsung saat `load_inventory()`, bukan gagal SSH
-- **Import cleanup:** `DeviceCredentials` tidak lagi digunakan di SSH adapter
-- **Inventaris:** `inventory/manager.py` punya `_resolve_env_vars()` regex-based, `_resolve_credentials()` post-processing
+- **Mechanism:** `username` / `password` as literals directly in `devices.yaml`
+- **Env var substitution:** `${VAR_NAME}` in the YAML value → resolved from `.env` at load time
+- **Unknown env var:** `KeyError` immediately at `load_inventory()`, not an SSH failure
+- **Import cleanup:** `DeviceCredentials` is no longer used in the SSH adapter
+- **Inventory:** `inventory/manager.py` has a regex-based `_resolve_env_vars()` and a `_resolve_credentials()` post-processing step
 
-### Contoh devices.yaml
+### Example devices.yaml
 
 ```yaml
 devices:
@@ -216,7 +216,7 @@ devices:
 
   - host: 10.0.0.51
     name: icx-dist-01
-    username: admin-dist          # literal langsung
+    username: admin-dist          # literal value
     password: dist-pass
 ```
 
@@ -231,17 +231,17 @@ devices:
 ## 2026-08-06 — Safety Gates + Radius Enhancement + Docs Refresh
 
 ### Safety Gates — 7 tools
-Semua tool destruktif sekarang wajib `confirm=True` gate:
-- `reboot_ap`, `disconnect_client`, `toggle_wlan` — baru ditambahkan
-- `apply_rf_recommendation`, `apply_ap_config`, `create_wlan`, `modify_wlan` — sudah ada
+All destructive tools now require a `confirm=True` gate:
+- `reboot_ap`, `disconnect_client`, `toggle_wlan` — newly added
+- `apply_rf_recommendation`, `apply_ap_config`, `create_wlan`, `modify_wlan` — already present
 
-Tanpa `confirm=True`, return `{"error": "confirm_required"}` + no-op.
+Without `confirm=True`, they return `{"error": "confirm_required"}` + no-op.
 
 ### `radius_list` — now shows IP & port
-Sebelumnya hanya `has_primary: bool`. Sekarang:
+Previously only `has_primary: bool`. Now:
 - `primary_ip`, `primary_port`
-- `secondary_ip`, `secondary_port` (None jika tidak ada)
-- `sharedSecret` tetap tidak diekspos (security)
+- `secondary_ip`, `secondary_port` (None if absent)
+- `sharedSecret` remains not exposed (security)
 
 ### Docs refresh
 - `README.md` — 62 tools, complete tool tables, updated architecture
@@ -252,7 +252,7 @@ Sebelumnya hanya `has_primary: bool`. Sekarang:
 - `kilo.json` — AI permission rules block .env reads
 
 ### Radio config — lessons learned
-AP config via PUT (not PATCH), body harus di-clean: unwritable fields strip, semua null hapus, integer untuk channel/width (bukan string), `autoChannelSelection` hapus kalau manual channel. HTTP 204 = success. Verified: set channel/power, disable/enable radios, auto channel.
+AP config uses PUT (not PATCH), and the body must be cleaned: strip unwritable fields, remove all nulls, use integers for channel/width (not strings), and remove `autoChannelSelection` when using a manual channel. HTTP 204 = success. Verified: set channel/power, disable/enable radios, auto channel.
 
 ---
 
@@ -320,55 +320,55 @@ AP config via PUT (not PATCH), body harus di-clean: unwritable fields strip, sem
 
 ### `get_zones()` — rewrite: `/group/tree/apgroup` primary
 
-**Masalah:** Domain-scoped user tidak bisa akses `/rkszones` (403).
-Zona tanpa AP tidak terdeteksi lewat `/query/ap` extraction.
+**Problem:** Domain-scoped users cannot access `/rkszones` (403).
+Zones without APs are not detected via `/query/ap` extraction.
 
-**Solusi:**
-- `GET /group/tree/apgroup` → 1 call, berfungsi root + domain, selalu
-  lihat semua zona termasuk yang tanpa AP
-- `get_zone_tree()` — panggil tree endpoint
-- `_flatten_zone_tree()` — recursive walk cari node `type: "ZONE"`,
-  bawa `domainUUID`/`domainName` ke bawah
+**Solution:**
+- `GET /group/tree/apgroup` → 1 call, works for root + domain, always
+  shows all zones including those without APs
+- `get_zone_tree()` — calls the tree endpoint
+- `_flatten_zone_tree()` — recursive walk looking for `type: "ZONE"` nodes,
+  carrying `domainUUID`/`domainName` down
 - Fallback: `/rkszones` (root) → `/query/ap` extraction
-- Return zone object sekarang punya field tambahan: `domainName`,
+- Returned zone objects now have extra fields: `domainName`,
   `offlineCount`, `onlineCount`
 
 ### `create_wlan` — 802.1X support via `standard8021X` endpoint
 
-| Type | Endpoint | Hasil |
+| Type | Endpoint | Result |
 |---|---|---|
 | PSK / Open | `POST /rkszones/{zid}/wlans` | verified (7 types) |
 | 802.1X | `POST /rkszones/{zid}/wlans/standard8021X` | verified |
 
-Payload 802.1X: `authServiceOrProfile: {name}` + `encryption: {WPA2, AES, mfp:disabled}`,
-tanpa passphrase. Wajib `radius_profile` (nama auth service di zone).
+802.1X payload: `authServiceOrProfile: {name}` + `encryption: {WPA2, AES, mfp:disabled}`,
+without a passphrase. Requires `radius_profile` (the auth service name in the zone).
 
-### `radius_list` — tool baru
+### `radius_list` — new tool
 
-`GET /rkszones/{zid}/aaa/radius` — list RADIUS server di zone untuk
-referensi `radius_profile` sebelum create 802.1X WLAN.
+`GET /rkszones/{zid}/aaa/radius` — lists RADIUS servers in the zone to
+reference `radius_profile` before creating an 802.1X WLAN.
 
 Adapter: `get_radius_servers(zone_id, for_accounting=None)`
 
-### `_request()` — support PATCH/PUT
+### `_request()` — PATCH/PUT support
 
-Sebelumnya hanya GET/POST/DELETE. PATCH/PUT jatuh ke GET (bug).
-Sekarang: `httpx.request(method, url, ...)` untuk PUT/PATCH.
+Previously only GET/POST/DELETE. PATCH/PUT fell through to GET (bug).
+Now: `httpx.request(method, url, ...)` for PUT/PATCH.
 
 ### Auth fallback: static token → credentials
 
-`VSZ_API_TOKEN` di .env bisa expired/revoked. Jika request 401 saat
-pakai token: `_token_failed = True`, login ulang via `VSZ_USER`/`VSZ_PASS`,
-retry sekali. Aktif di `_request()` dan `create_wlan()`.
+`VSZ_API_TOKEN` in `.env` can expire or be revoked. If a request returns 401 while
+using the token: `_token_failed = True`, log in again via `VSZ_USER`/`VSZ_PASS`,
+and retry once. Active in `_request()` and `create_wlan()`.
 
 ---
 
-## Cara Menambah Dokumentasi Perubahan
+## How to Add Change Documentation
 
-Setiap kali ada perubahan signifikan (patch, bug fix, feature baru),
-tambah entry di file ini dengan format yang sama. Jangan hapus entry
-lama — ini historical record untuk developer selanjutnya (manusia
-atau AI).
+Whenever there is a significant change (patch, bug fix, new feature),
+add an entry to this file in the same format. Do not delete old
+entries — this is a historical record for future developers (human
+or AI).
 
 ### v0.13.0 - Access Lists
 - Added `ruckus_device_access_lists` (ICX tool #33): `show ip access-list` + `show ip access-list brief`
