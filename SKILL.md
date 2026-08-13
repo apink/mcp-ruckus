@@ -7,35 +7,13 @@ description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 81 tools f
 
 ## How to Install This Skill
 
-This file (SKILL.md) is a ready-to-use skill for the Ruckus MCP server. It works with any AgentSkills-compatible agent. Pick your agent:
+This file (SKILL.md) is a ready-to-use skill for the Ruckus MCP server. Copy it to your agent's skill directory:
 
-### Hermes
-
-```bash
-mkdir -p ~/.hermes/profiles/<profile>/skills/ruckus
-cp SKILL.md ~/.hermes/profiles/<profile>/skills/ruckus/SKILL.md
-```
-
-Replace `<profile>` with your Hermes profile name (e.g. `hermes-programmer`).
-
-### OpenClaw
-
-```bash
-mkdir -p ~/.openclaw/skills/ruckus
-cp SKILL.md ~/.openclaw/skills/ruckus/SKILL.md
-```
-
-Alternative CLI install: `openclaw skills install ./SKILL.md --as ruckus-mcp --global`.
-Workspace-local option: `<workspace>/skills/ruckus/SKILL.md`.
-
-### Claude Code
-
-```bash
-mkdir -p ~/.claude/skills/ruckus
-cp SKILL.md ~/.claude/skills/ruckus/SKILL.md
-```
-
-Project-local option: `.claude/skills/ruckus/SKILL.md`.
+| Agent | Location |
+|---|---|
+| Hermes | `~/.hermes/profiles/<profile>/skills/ruckus/SKILL.md` |
+| OpenClaw | `~/.openclaw/skills/ruckus/SKILL.md` |
+| Claude Code | `~/.claude/skills/ruckus/SKILL.md` |
 
 Make sure the MCP server is running and registered in your agent before loading the skill (see [README.md](README.md)).
 
