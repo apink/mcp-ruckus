@@ -23,6 +23,66 @@ Make sure the MCP server is running and registered in your agent before loading 
 - **ICX (SSH, netmiko):** `inventory/devices.yaml` → `username`/`password` per device. `${ENV_VAR}` supported. Rate limit: `ICX_RATE_LIMIT=5` per device.
 - **MCP server:** `MCP_TRANSPORT=sse|streamable-http`, `MCP_PORT=8000`, `MCP_API_KEY` (Bearer), `MCP_ALLOWED_IPS` (CIDR).
 
+## Connect the MCP Server to Your Agent
+
+Start the server (`python3 server.py`), then register its endpoint in your agent. Endpoints (default port `8000`): SSE `http://localhost:8000/sse`, streamable-http `http://localhost:8000/mcp`.
+
+### Hermes
+
+Add to `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  ruckus:
+    url: http://localhost:8000/sse
+    transport: sse
+    timeout: 120
+    connect_timeout: 15
+```
+
+### OpenClaw
+
+```bash
+openclaw mcp add ruckus --url http://localhost:8000/sse --transport sse
+```
+
+or in `~/.openclaw/openclaw.json`:
+
+```json5
+{
+  mcp: {
+    servers: {
+      ruckus: {
+        url: "http://localhost:8000/sse",
+        transport: "sse",
+        enabled: true
+      }
+    }
+  }
+}
+```
+
+### Claude Code
+
+```bash
+claude mcp add --transport sse ruckus http://localhost:8000/sse
+```
+
+or project-scoped `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ruckus": {
+      "type": "sse",
+      "url": "http://localhost:8000/sse"
+    }
+  }
+}
+```
+
+If `MCP_API_KEY` is set, add an `Authorization: Bearer <key>` header to the server entry.
+
 ## Tool Summary
 
 Full descriptions in [docs/TOOLS.md](docs/TOOLS.md).
