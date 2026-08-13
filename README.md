@@ -78,16 +78,20 @@ devices:
 
 ## Connect to an AI Agent (MCP)
 
-Start the server (`python3 server.py`), then register its endpoint in your agent.
+After the server is up, point your AI assistant at it — that's how the 81 tools show up inside the agent.
 
-| Transport | Endpoint |
-|---|---|
-| SSE | `http://localhost:8000/sse` |
-| Streamable HTTP | `http://localhost:8000/mcp` |
+Two endpoints, pick one:
+
+| Transport | Endpoint | When to use |
+|---|---|---|
+| SSE | `http://localhost:8000/sse` | Simple, local setup |
+| Streamable HTTP | `http://localhost:8000/mcp` | Production / remote server |
+
+> If your agent runs on a different machine, replace `localhost` with the server's IP or hostname.
 
 ### Hermes
 
-Add to `~/.hermes/config.yaml`:
+Add a `mcp_servers` block to `~/.hermes/config.yaml`:
 
 ```yaml
 mcp_servers:
@@ -100,11 +104,13 @@ mcp_servers:
 
 ### OpenClaw
 
+Easiest via CLI:
+
 ```bash
 openclaw mcp add ruckus --url http://localhost:8000/sse --transport sse
 ```
 
-or in `~/.openclaw/openclaw.json`:
+or drop it into `~/.openclaw/openclaw.json`:
 
 ```json5
 {
@@ -126,7 +132,7 @@ or in `~/.openclaw/openclaw.json`:
 claude mcp add --transport sse ruckus http://localhost:8000/sse
 ```
 
-or project-scoped `.mcp.json`:
+or a project-scoped `.mcp.json` (shareable via git):
 
 ```json
 {
@@ -139,7 +145,20 @@ or project-scoped `.mcp.json`:
 }
 ```
 
-If `MCP_API_KEY` is set, add an `Authorization: Bearer <key>` header to the server entry.
+### If you set `MCP_API_KEY`
+
+Pass it as a Bearer header. Example for Claude Code:
+
+```bash
+claude mcp add --transport sse ruckus http://localhost:8000/sse \
+  --header "Authorization: Bearer YOUR_KEY"
+```
+
+For the JSON configs above, add a `headers` field:
+
+```json
+"headers": { "Authorization": "Bearer YOUR_KEY" }
+```
 
 ## Documentation
 
