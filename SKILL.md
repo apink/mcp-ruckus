@@ -15,7 +15,7 @@ This file (SKILL.md) is a ready-to-use skill for the Ruckus MCP server. Copy it 
 | OpenClaw | `~/.openclaw/skills/ruckus/SKILL.md` |
 | Claude Code | `~/.claude/skills/ruckus/SKILL.md` |
 
-Make sure the MCP server is running and registered in your agent before loading the skill (see [README.md](README.md) → "Connect to an AI Agent (MCP)").
+Make sure the MCP server is running and registered in your agent before loading the skill (see [README.md](README.md) → "Connect your AI assistant").
 
 ## Connection
 
