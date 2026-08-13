@@ -11,7 +11,7 @@ This file (SKILL.md) is a ready-to-use skill for the Ruckus MCP server. Copy it 
 
 | Agent | Location |
 |---|---|
-| Hermes | `~/.hermes/profiles/<profile>/skills/ruckus/SKILL.md` |
+| Hermes | `~/.hermes/skills/ruckus/SKILL.md` |
 | OpenClaw | `~/.openclaw/skills/ruckus/SKILL.md` |
 | Claude Code | `~/.claude/skills/ruckus/SKILL.md` |
 
