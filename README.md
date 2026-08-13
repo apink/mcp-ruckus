@@ -143,20 +143,22 @@ devices:
 
 ## Connect your AI assistant
 
-Once the server is running, point your AI assistant at it. That's how the 81 tools appear inside the agent.
+Now that the server is running, your next step is to introduce it to your AI assistant (Hermes, OpenClaw, Claude Code, etc.). Once connected, the 81 tools will show up inside the assistant and you can use them just by asking.
 
-> Replace `{SERVER_IP}` with the IP or hostname of the machine running the server. Use `localhost` if the agent runs on the same machine.
+> Replace `{SERVER_IP}` with the IP or hostname of the machine running the server. If the assistant runs on the same computer, you can use `localhost`.
 
-Two endpoints, pick one:
+### Pick a transport
 
 | Transport | Endpoint | When to use |
 |---|---|---|
 | SSE | `http://{SERVER_IP}:8000/sse` | Simple, local setup |
 | Streamable HTTP | `http://{SERVER_IP}:8000/mcp` | Production / remote server |
 
+Pick one — both work. SSE is great for getting started locally; streamable HTTP is the go-to for production or remote setups.
+
 ### Hermes
 
-Add a `mcp_servers` block to `~/.hermes/config.yaml`:
+For Hermes, open `~/.hermes/config.yaml` and add a `mcp_servers` block:
 
 ```yaml
 mcp_servers:
@@ -169,13 +171,13 @@ mcp_servers:
 
 ### OpenClaw
 
-Easiest via CLI:
+The quickest way — just run this command:
 
 ```bash
 openclaw mcp add ruckus --url http://{SERVER_IP}:8000/sse --transport sse
 ```
 
-or drop it into `~/.openclaw/openclaw.json`:
+Or, if you prefer editing files, drop it into `~/.openclaw/openclaw.json`:
 
 ```json5
 {
@@ -193,11 +195,13 @@ or drop it into `~/.openclaw/openclaw.json`:
 
 ### Claude Code
 
+Run this from your project folder:
+
 ```bash
 claude mcp add --transport sse ruckus http://{SERVER_IP}:8000/sse
 ```
 
-or a project-scoped `.mcp.json` (shareable via git):
+Or use a project-scoped `.mcp.json` (shareable via git):
 
 ```json
 {
@@ -212,7 +216,7 @@ or a project-scoped `.mcp.json` (shareable via git):
 
 ### If you set `MCP_API_KEY`
 
-Pass it as a Bearer header. Example for Claude Code:
+If you enabled `MCP_API_KEY`, the assistant must send it as a Bearer header. Example for Claude Code:
 
 ```bash
 claude mcp add --transport sse ruckus http://{SERVER_IP}:8000/sse \
