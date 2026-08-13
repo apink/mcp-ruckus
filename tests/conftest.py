@@ -232,8 +232,8 @@ class MockRuckusDeviceDriver:
 
     def get_lldp_neighbors(self) -> list[dict[str, Any]]:
         return [
-            {"local_port": "1/1/1", "chassis_id": "c0c5.2053.b258", "port_id": "c1c5.2053.b35a",
-             "port_description": "GigabitEthernet1/1/3", "system_name": "BS-RISET-L3"},
+            {"local_port": "1/1/1", "chassis_id": "aabb.ccdd.ee02", "port_id": "aabb.ccdd.ee03",
+             "port_description": "GigabitEthernet1/1/3", "system_name": "SW-CORE-01"},
         ]
 
     def get_poe_status(
@@ -261,7 +261,7 @@ class MockRuckusDeviceDriver:
 
     def get_arp_table(self) -> list[dict[str, Any]]:
         return [
-            {"ip": "10.3.3.81", "mac": "c0c5.206c.53c2", "type": "Dynamic",
+            {"ip": "10.60.172.81", "mac": "aabb.ccdd.ee01", "type": "Dynamic",
              "age": 2, "port": "1/1/23", "status": "Valid"},
         ]
 
@@ -278,7 +278,7 @@ class MockRuckusDeviceDriver:
                 {"direction": "inbound", "connection": 3, "version": "SSH-2",
                  "encryption": "aes128-ctr", "username": "admin",
                  "hmac": "hmac-sha1", "server_hostkey": "ssh-rsa",
-                 "source_ip": "10.10.10.177"},
+                 "source_ip": "10.60.172.177"},
             ],
         }
 
@@ -313,7 +313,7 @@ class MockRuckusDeviceDriver:
                    dedup: bool = True) -> dict[str, Any]:
         entries = [
             {"timestamp": "Aug  7 09:32:15", "severity": "I", "facility": "Security",
-             "message": "SSH login by admin from src IP 10.10.10.177"},
+             "message": "SSH login by admin from src IP 10.60.172.177"},
             {"timestamp": "Aug  7 09:31:05", "severity": "E", "facility": "STP",
              "message": "Port 1/1/2 BLOCKING topology change"},
         ]
@@ -351,9 +351,9 @@ class MockRuckusDeviceDriver:
             "ntp_master_enabled": False,
             "ntp_in_panic": False,
             "ntp_peers": [
-                {"address": "10.10.10.147", "ref_clock": "INIT", "stratum": "16",
+                {"address": "192.0.2.147", "ref_clock": "INIT", "stratum": "16",
                  "reachable": False, "delay": "0.00", "offset": "0.000"},
-                {"address": "103.123.108.224", "ref_clock": "INIT", "stratum": "16",
+                {"address": "198.51.100.224", "ref_clock": "INIT", "stratum": "16",
                  "reachable": False, "delay": "0.00", "offset": "0.000"},
             ],
         }
@@ -361,13 +361,13 @@ class MockRuckusDeviceDriver:
     def get_spanning_tree(self, vlan: str | None = None) -> dict[str, Any]:
         return {
             "host": "10.60.172.1", "stp_configured": True, "vlan": 1,
-            "root_id": "800050a7334112a0", "root_cost": 0, "root_port": "Root",
-            "bridge_priority": "8000", "bridge_address": "50a7334112a0",
+            "root_id": "8000aabbccddeeff", "root_cost": 0, "root_port": "Root",
+            "bridge_priority": "8000", "bridge_address": "aabbccddeeff",
             "ports": [
                 {"port": "1/1/1", "priority": "80", "path_cost": 4,
                  "state": "FORWARDING", "fwd_transitions": 3,
-                 "designated_cost": "0", "designated_root": "800050a7334112a0",
-                 "designated_bridge": "800050a7334112a0"},
+                 "designated_cost": "0", "designated_root": "8000aabbccddeeff",
+                 "designated_bridge": "8000aabbccddeeff"},
                 {"port": "1/1/2", "priority": "80", "path_cost": 0,
                  "state": "DISABLED", "fwd_transitions": 0,
                  "designated_cost": "0", "designated_root": "0000000000000000",
@@ -388,11 +388,11 @@ class MockRuckusDeviceDriver:
             "host": "10.60.172.1",
             "acls": [
                 {"type": "Standard", "name": "ADMINSSH", "entries": 8, "rules": [
-                    {"sequence": 10, "action": "permit", "match": "host 10.10.10.4"},
-                    {"sequence": 20, "action": "permit", "match": "host 10.10.10.215"},
+                    {"sequence": 10, "action": "permit", "match": "host 10.60.172.4"},
+                    {"sequence": 20, "action": "permit", "match": "host 10.60.172.215"},
                 ]},
                 {"type": "Extended", "name": "INET-ONLY", "entries": 5, "rules": [
-                    {"sequence": 10, "action": "permit", "match": "icmp 10.80.0.0 0.0.255.255 host 10.255.255.80"},
+                    {"sequence": 10, "action": "permit", "match": "icmp 10.60.0.0 0.0.255.255 host 10.60.255.80"},
                     {"sequence": 500, "action": "permit", "match": "ip any any"},
                 ]},
             ],

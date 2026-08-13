@@ -115,7 +115,7 @@ Complete technical details below.
 - **Tool:** `ruckus_device_users(host)`
 - **Command:** `show users`
 - **Parser:** Local user accounts — username, encrypt, privilege, status, expire time. Password hash **tidak diekspos** (security)
-- **Live-tested:** dist-poc 10.3.3.82 (admin, ansible) + acc-poc 10.80.172.35 (super)
+- **Live-tested:** 2 switches (development + access) — local user accounts verified
 - **Tool count:** 73 → 74 tools
 
 ### SSH server status (new tool)
@@ -124,7 +124,7 @@ Complete technical details below.
 - **Tool:** `ruckus_device_ssh_status(host)`
 - **Command:** `show ip ssh` — `show ssh` **invalid** di firmware 08.0.x (Lessons: dipakai `show ip ssh`)
 - **Parser:** SSH version + enabled + host key + per-session (direction, connection, version, encryption, username, HMAC, source IP)
-- **Live-tested:** dist-poc + acc-poc — session aktif admin/super dari 10.10.10.177, hostkey RSA(2048)
+- **Live-tested:** 2 switches — active sessions + hostkey RSA(2048) verified
 - **Tool count:** 74 → 75 tools
 
 ### Cleanup
@@ -186,7 +186,7 @@ Complete technical details below.
 - **Tool:** `ruckus_device_lldp_neighbors(host)`
 - **Command:** `show lldp neighbors`
 - **Parser:** Column-based — local_port, chassis_id, port_id, port_description, system_name
-- **Tested:** Live on ICX7450-24-HPOE (12 neighbors — Cisco WLC, ICX switch, APs) + ICX7150-48-POEF (1 neighbor — BS-RISET-L3)
+- **Tested:** Live on ICX7450-24-HPOE (12 neighbors — WLC, ICX switch, APs) + ICX7150-48-POEF (1 neighbor — upstream L3 switch)
 - **Tool count:** 62 → 63 tools
 
 ### Rate Limiting (vSZ API + ICX SSH)

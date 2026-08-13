@@ -432,13 +432,13 @@ SAMPLE_DEVICE_STATUS = {
 SAMPLE_INTERFACES = [
     {"port": "1/1/1", "link": "up", "state": "Forward", "duplex": "Full",
      "speed": "10G", "trunk": "None", "tag": "Yes", "pvid": "1",
-     "priority": 0, "mac": "c0c5.2053.b358", "description": "Uplink to Core"},
+     "priority": 0, "mac": "aabb.ccdd.ee04", "description": "Uplink to Core"},
     {"port": "1/1/2", "link": "down", "state": "None", "duplex": "None",
      "speed": "None", "trunk": "None", "tag": "No", "pvid": "151",
-     "priority": 0, "mac": "c0c5.2053.b358", "description": "Spare"},
+     "priority": 0, "mac": "aabb.ccdd.ee04", "description": "Spare"},
     {"port": "1/2/1", "link": "up", "state": "Forward", "duplex": "Full",
      "speed": "1G", "trunk": "None", "tag": "Yes", "pvid": "1",
-     "priority": 0, "mac": "c0c5.2053.b358", "description": "AP Port 01"},
+     "priority": 0, "mac": "aabb.ccdd.ee04", "description": "AP Port 01"},
 ]
 
 SAMPLE_VLAN_SUMMARY = {

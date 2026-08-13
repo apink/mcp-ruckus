@@ -266,7 +266,7 @@ class TestArpTable:
         result = _device_arp_table("10.60.172.1")
         assert isinstance(result, list)
         assert len(result) == 1
-        assert result[0]["ip"] == "10.3.3.81"
+        assert result[0]["ip"] == "10.60.172.81"
 
 
 class TestDeviceResources:
