@@ -8,7 +8,7 @@ services:
     environment:
       - MCP_HOST=0.0.0.0
       - MCP_PORT=8000
-      - MCP_TRANSPORT=sse
+      - MCP_TRANSPORT=streamable-http
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONUNBUFFERED=1
       - TZ=${TZ:-Asia/Jakarta}

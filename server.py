@@ -4,8 +4,8 @@ Ruckus MCP Server — MCP for Ruckus Infrastructure
 vSZ Controller (REST API) + ICX Switch (SSH)
 
 Supported transports (MCP_TRANSPORT env var):
-  sse              — Server-Sent Events (default)
-  streamable-http  — Streamable HTTP (recommended for production)
+  streamable-http  — Streamable HTTP (default, recommended for production)
+  sse              — Server-Sent Events (legacy, still supported)
 
 Security (HTTP transports only):
   MCP_API_KEY      — Bearer token required on every request
@@ -134,7 +134,7 @@ class SecurityMiddleware:
 # ── Entry Point ────────────────────────────────────────────────────
 
 def main() -> None:
-    transport = os.getenv("MCP_TRANSPORT", "sse").strip().lower()
+    transport = os.getenv("MCP_TRANSPORT", "streamable-http").strip().lower()
     host = os.getenv("MCP_HOST", "0.0.0.0")
     port = int(os.getenv("MCP_PORT", "8000"))
 

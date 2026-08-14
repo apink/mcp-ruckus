@@ -21,7 +21,7 @@ Make sure the MCP server is running and registered in your agent before loading 
 
 - **vSZ (async REST):** `.env` → `VSZ_HOST`, `VSZ_PORT`, `VSZ_USER`, `VSZ_PASS`, `VSZ_API_VERSION` (default v11_1). Rate limit: `VSZ_RATE_LIMIT=10`.
 - **ICX (SSH, netmiko):** `inventory/devices.yaml` → `username`/`password` per device. `${ENV_VAR}` supported. Rate limit: `ICX_RATE_LIMIT=5` per device.
-- **MCP server:** `MCP_TRANSPORT=sse|streamable-http`, `MCP_PORT=8000`, `MCP_API_KEY` (Bearer), `MCP_ALLOWED_IPS` (CIDR).
+- **MCP server:** `MCP_TRANSPORT=streamable-http|sse` (default: streamable-http), `MCP_PORT=8000`, `MCP_API_KEY` (Bearer), `MCP_ALLOWED_IPS` (CIDR).
 
 ## Tool Summary
 

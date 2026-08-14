@@ -88,7 +88,7 @@ pip install -e .
 python3 server.py
 ```
 
-When it starts, the server listens on `0.0.0.0:8000` and serves SSE at `http://{SERVER_IP}:8000/sse` (use `localhost` for the same machine).
+When it starts, the server listens on `0.0.0.0:8000` and serves Streamable HTTP at `http://{SERVER_IP}:8000/mcp` (use `localhost` for the same machine; SSE is also available at `/sse` if you set `MCP_TRANSPORT=sse`).
 
 ### Option B — run with Docker
 
@@ -112,7 +112,7 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 | `VSZ_API_VERSION` | Controller API version | `v11_1` |
 | `VSZ_RATE_LIMIT` | Max simultaneous API calls | `10` |
 | `ICX_RATE_LIMIT` | Max simultaneous SSH sessions per switch | `5` |
-| `MCP_TRANSPORT` | How the server talks to the AI: `sse` or `streamable-http` | `sse` |
+| `MCP_TRANSPORT` | How the server talks to the AI: `streamable-http` (default) or `sse` | `streamable-http` |
 | `MCP_HOST` | Which network address to listen on (`0.0.0.0` = all) | `0.0.0.0` |
 | `MCP_PORT` | Which port the server listens on | `8000` |
 | `LOG_LEVEL` | How much logging you want | `INFO` |
@@ -151,10 +151,10 @@ Now that the server is running, your next step is to introduce it to your AI ass
 
 | Transport | Endpoint | When to use |
 |---|---|---|
-| SSE | `http://{SERVER_IP}:8000/sse` | Simple, local setup |
-| Streamable HTTP | `http://{SERVER_IP}:8000/mcp` | Production / remote server |
+| Streamable HTTP (default) | `http://{SERVER_IP}:8000/mcp` | Recommended — works everywhere, incl. production/remote |
+| SSE | `http://{SERVER_IP}:8000/sse` | Alternative for older agents or local setups |
 
-Pick one — both work. SSE is great for getting started locally; streamable HTTP is the go-to for production or remote setups.
+Streamable HTTP is the default. SSE also works — if your agent prefers it, just use the `/sse` endpoint and set the transport to `sse`.
 
 ### Hermes
 
@@ -163,18 +163,20 @@ For Hermes, open `~/.hermes/config.yaml` and add a `mcp_servers` block:
 ```yaml
 mcp_servers:
   ruckus:
-    url: http://{SERVER_IP}:8000/sse
-    transport: sse
+    url: http://{SERVER_IP}:8000/mcp
+    transport: streamable-http
     timeout: 120
     connect_timeout: 15
 ```
+
+Using SSE instead? Point `url` to `http://{SERVER_IP}:8000/sse` and set `transport: sse`.
 
 ### OpenClaw
 
 The quickest way — just run this command:
 
 ```bash
-openclaw mcp add ruckus --url http://{SERVER_IP}:8000/sse --transport sse
+openclaw mcp add ruckus --url http://{SERVER_IP}:8000/mcp --transport streamable-http
 ```
 
 Or, if you prefer editing files, drop it into `~/.openclaw/openclaw.json`:
@@ -184,8 +186,8 @@ Or, if you prefer editing files, drop it into `~/.openclaw/openclaw.json`:
   mcp: {
     servers: {
       ruckus: {
-        url: "http://{SERVER_IP}:8000/sse",
-        transport: "sse",
+        url: "http://{SERVER_IP}:8000/mcp",
+        transport: "streamable-http",
         enabled: true
       }
     }
@@ -193,12 +195,14 @@ Or, if you prefer editing files, drop it into `~/.openclaw/openclaw.json`:
 }
 ```
 
+Using SSE instead? Swap the URL to `http://{SERVER_IP}:8000/sse` and set `transport: "sse"`.
+
 ### Claude Code
 
 Run this from your project folder:
 
 ```bash
-claude mcp add --transport sse ruckus http://{SERVER_IP}:8000/sse
+claude mcp add --transport http ruckus http://{SERVER_IP}:8000/mcp
 ```
 
 Or use a project-scoped `.mcp.json` (shareable via git):
@@ -207,19 +211,21 @@ Or use a project-scoped `.mcp.json` (shareable via git):
 {
   "mcpServers": {
     "ruckus": {
-      "type": "sse",
-      "url": "http://{SERVER_IP}:8000/sse"
+      "type": "http",
+      "url": "http://{SERVER_IP}:8000/mcp"
     }
   }
 }
 ```
+
+Using SSE instead? Use `--transport sse` with the `/sse` URL (and `"type": "sse"` in `.mcp.json`).
 
 ### If you set `MCP_API_KEY`
 
 If you enabled `MCP_API_KEY`, the assistant must send it as a Bearer header. Example for Claude Code:
 
 ```bash
-claude mcp add --transport sse ruckus http://{SERVER_IP}:8000/sse \
+claude mcp add --transport http ruckus http://{SERVER_IP}:8000/mcp \
   --header "Authorization: Bearer YOUR_KEY"
 ```
 
