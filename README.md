@@ -70,7 +70,7 @@ You don't need to be a network expert — if you have the IPs and credentials, t
 
 ```bash
 # 1. Get the code
-git clone https://github.com/your-org/mcp-ruckus.git
+git clone https://github.com/apink/mcp-ruckus.git
 cd mcp-ruckus
 
 # 2. Create your config files from the templates
@@ -92,9 +92,17 @@ When it starts, the server listens on `0.0.0.0:8000` and serves Streamable HTTP 
 
 ### Option B — run with Docker
 
+Create your config files first (same as Option A, step 2):
+
 ```bash
-docker build -t ruckus-mcp:latest .
-docker compose up -d
+cp .env.example .env
+cp inventory/devices.example.yaml inventory/devices.yaml   # only needed for ICX switch tools
+```
+
+Then build and start the container:
+
+```bash
+docker compose up -d --build
 ```
 
 ## Configuration
@@ -261,7 +269,6 @@ To quickly check that the server starts and responds:
 | [SECURITY.md](SECURITY.md) | Security policy, input validation, credential handling |
 | [CHANGES.md](CHANGES.md) | Changelog + release notes |
 | [SKILL.md](SKILL.md) | AI agent skill (copy to your agent's skills dir) |
-| [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md) | Development guidelines |
 
 ## License
 
