@@ -56,7 +56,6 @@ def devices_by_role(role: str) -> list[dict[str, Any]]:
 
 def register_tools(mcp):
     """Register inventory and bulk device tools."""
-    from fastmcp import FastMCP
 
     @mcp.tool()
     def ruckus_list_devices() -> list[dict[str, Any]]:

@@ -12,10 +12,10 @@ Algorithm:
 
 from __future__ import annotations
 
-from collections import deque
-from typing import Any
 import logging
 import random
+from collections import deque
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

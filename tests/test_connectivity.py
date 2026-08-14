@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from tools.connectivity import ping_device, check_port, http_latency
+
+from tools.connectivity import check_port, http_latency, ping_device
 
 
 class TestPingDevice:

@@ -7,6 +7,7 @@ from fastmcp import FastMCP
 
 from tools import (
     connectivity,
+    icx_device,
     inventory,
     vsz_alarms,
     vsz_aps,
@@ -19,7 +20,6 @@ from tools import (
     vsz_traffic,
     vsz_wlans,
 )
-from tools import icx_device
 
 _MODULES = [
     vsz_system,

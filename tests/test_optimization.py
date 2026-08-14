@@ -1,7 +1,7 @@
 """Tests for RF optimization algorithm."""
 from __future__ import annotations
 
-from tools.optimization import _interference_5g, _interference_24g, _secondary_channel, _POWER_LEVELS
+from tools.optimization import _POWER_LEVELS, _interference_5g, _interference_24g, _secondary_channel
 
 
 class TestInterference5g:

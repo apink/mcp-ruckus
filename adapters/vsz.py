@@ -134,7 +134,10 @@ class VsZRestAdapter:
                     await self._ensure_login()
                     if self._service_ticket:
                         return await self._request(path, method=method, payload=payload, params=params)
-                logger.error(f"vSZ API {method} {path} HTTP error {exc.response.status_code}: {exc.response.text[:200]}")
+                logger.error(
+                    f"vSZ API {method} {path} HTTP error {exc.response.status_code}: "
+                    f"{exc.response.text[:200]}"
+                )
                 return {"error": f"http_{exc.response.status_code}", "detail": str(exc.response.text)}
             except httpx.HTTPError as exc:
                 logger.error(f"vSZ API {method} {path} network error: {exc}")
@@ -348,7 +351,10 @@ class VsZRestAdapter:
             return {"error": "not_authenticated"}
 
         if wlan_type == "standard8021X":
-            url = f"{self.base_url}{self.api_path}/rkszones/{zone_id}/wlans/standard8021X?serviceTicket={self._service_ticket}"
+            url = (
+                f"{self.base_url}{self.api_path}/rkszones/{zone_id}/wlans/"
+                f"standard8021X?serviceTicket={self._service_ticket}"
+            )
         else:
             url = f"{self.base_url}{self.api_path}/rkszones/{zone_id}/wlans?serviceTicket={self._service_ticket}"
         try:

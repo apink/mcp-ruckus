@@ -5,8 +5,23 @@ Run: pytest test_tools.py -v
 
 import os
 import time
-import pytest
 from pathlib import Path
+
+import pytest
+
+from adapters.device_ssh import (
+    _validate_ipv4,
+    _validate_ipv6,
+    _validate_mac,
+    _validate_port,
+    _validate_vlan_id,
+)
+from adapters.vsz import VsZRestAdapter
+from tools.icx_device import _device_info as device_info
+from tools.vsz_aps import _ap_detail as ap_detail
+from tools.vsz_aps import _ap_status as ap_status
+from tools.vsz_clients import _client_roaming as client_roaming
+from tools.vsz_events import _alert_events as alert_events
 
 # Setup environment
 BASE_DIR = Path(__file__).resolve().parent
@@ -24,18 +39,6 @@ if env_path.exists():
                     if val:
                         os.environ.setdefault(key.strip(), val)
 
-from tools.vsz_aps import _ap_status as ap_status, _ap_detail as ap_detail
-from tools.vsz_events import _alert_events as alert_events
-from tools.vsz_clients import _client_roaming as client_roaming
-from tools.icx_device import _device_info as device_info
-from adapters.device_ssh import (
-    _validate_port,
-    _validate_mac,
-    _validate_ipv4,
-    _validate_vlan_id,
-    _validate_ipv6,
-)
-from adapters.vsz import VsZRestAdapter
 
 # Test categories
 @pytest.mark.vsz
@@ -92,7 +95,7 @@ def test_input_validation():
     _validate_ipv4("203.0.113.1")
     _validate_vlan_id(100)
     _validate_ipv6("2001:db8::1")
-    
+
     # Invalid inputs (should raise ValueError)
     with pytest.raises(ValueError):
         _validate_port("1/1/1; ls")
@@ -114,7 +117,7 @@ def test_vsz_session_reuse():
     # First login
     result1 = adapter.login()
     assert "error" not in result1, "vSZ login failed"
-    
+
     # Second call should reuse session
     result2 = adapter._ensure_login()
     assert result2.get("status") == "session_reused", "Session not reused"
@@ -126,7 +129,7 @@ def test_vsz_error_handling():
     adapter.base_url = "https://192.0.2.1:8443"
     adapter._service_ticket = "fake"
     adapter._login_time = time.time()
-    
+
     result = adapter._request("/rkszones")
     assert "error" in result, "vSZ should return explicit error"
     assert result["error"] == "network_error", f"Expected network_error, got {result['error']}"

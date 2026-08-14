@@ -765,62 +765,6 @@ class RuckusDeviceDriver:
         except Exception as exc:
             return [{"host": self.host, "error": str(exc)}]
 
-    def get_poe_status(self) -> dict[str, Any]:
-        try:
-            with self._connect() as conn:
-                output = conn.send_command("show inline power", read_timeout=15)
-            result: dict[str, Any] = {"host": self.host, "ports": []}
-            in_table = False
-
-            cap_m = re.search(r"Total is (\d+) mWatts", output)
-            free_m = re.search(r"Current Free is (\d+) mWatts", output)
-            req_m = re.search(r"Requests Honored (\d+)", output)
-
-            if cap_m:
-                result["power_capacity_mw"] = int(cap_m.group(1))
-            if free_m:
-                result["power_free_mw"] = int(free_m.group(1))
-            if req_m:
-                result["requests_honored"] = int(req_m.group(1))
-
-            for line in output.splitlines():
-                line_s = line.strip()
-                if not line_s:
-                    continue
-                if line_s.startswith("Port") and "Admin" in line_s:
-                    in_table = True
-                    continue
-                if line_s.startswith("---") or line_s.startswith("==="):
-                    continue
-                if not in_table:
-                    continue
-                if line_s.startswith("Total"):
-                    break
-
-                parts = re.split(r"\s+", line_s)
-                if len(parts) < 8:
-                    continue
-                if not re.match(r"^\d+/\d+/\d+$", parts[0]):
-                    continue
-
-                result["ports"].append({
-                    "port": parts[0],
-                    "admin_state": parts[1],
-                    "oper_state": parts[2],
-                    "power_consumed_mw": int(parts[3]) if parts[3].isdigit() else 0,
-                    "power_allocated_mw": int(parts[4]) if parts[4].isdigit() else 0,
-                    "pd_type": parts[5],
-                    "pd_class": parts[6],
-                    "priority": parts[7],
-                })
-            if "power_capacity_mw" not in result:
-                result["note"] = "PoE not supported or not detected on this switch"
-            return result
-        except NetmikoTimeoutException:
-            return {"host": self.host, "error": "timeout"}
-        except Exception as exc:
-            return {"host": self.host, "error": str(exc)}
-
     def get_sfp_info(self, port: str | None = None) -> list[dict[str, Any]]:
         try:
             with self._connect() as conn:

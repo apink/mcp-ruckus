@@ -4,13 +4,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
 
 from adapters.vsz import VsZRestAdapter
-from tools.optimization import _secondary_channel, optimize as _optimize_rf
+from tools.optimization import _secondary_channel
+from tools.optimization import optimize as _optimize_rf
 from tools.rf_state import load_optimization, save_optimization
 
 logger = logging.getLogger(__name__)

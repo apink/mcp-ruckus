@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from tools.vsz_clients import _client_search, _client_roaming
+
+from tools.vsz_clients import _client_roaming, _client_search
 
 pytestmark = pytest.mark.asyncio
 

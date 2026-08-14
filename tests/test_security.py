@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import ipaddress
-
-import pytest
+from typing import Any
 
 from server import SecurityMiddleware, _parse_allowed_networks
+
+
+def _noop_app(scope: dict, recv: Any, send: Any) -> None:
+    return None
 
 
 class TestParseAllowedNetworks:
@@ -37,14 +40,14 @@ class TestParseAllowedNetworks:
 
 class TestSecurityMiddleware:
     def test_init(self):
-        app = lambda scope, recv, send: None
+        app = _noop_app
         mw = SecurityMiddleware(app, "secret", [ipaddress.ip_network("10.0.0.0/8")])
         assert mw.api_key == "secret"
         assert mw._enforce_key is True
         assert mw._enforce_ip is True
 
     def test_no_config(self):
-        app = lambda scope, recv, send: None
+        app = _noop_app
         mw = SecurityMiddleware(app, "", [])
         assert mw._enforce_key is False
         assert mw._enforce_ip is False

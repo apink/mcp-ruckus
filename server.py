@@ -20,9 +20,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import uvicorn
 from fastmcp import FastMCP
 
-import uvicorn
+from tools import register_all_tools
 
 BASE_DIR = Path(__file__).resolve().parent
 _env_path = BASE_DIR / ".env"
@@ -46,8 +47,6 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 logger = logging.getLogger("ruckus-mcp")
-
-from tools import register_all_tools
 
 mcp = FastMCP("Ruckus MCP")
 register_all_tools(mcp)

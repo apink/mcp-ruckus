@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from tools.vsz_wlans import _ssid_list, _ssid_list_all, _ssid_detail, _radius_list, _create_wlan
+
+from tools.vsz_wlans import _create_wlan, _radius_list, _ssid_detail, _ssid_list, _ssid_list_all
 
 pytestmark = pytest.mark.asyncio
 

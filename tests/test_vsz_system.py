@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from tools.vsz_system import _zone_status, _zone_ap_list, _license_status
+
+from tools.vsz_system import _license_status, _zone_ap_list, _zone_status
 
 pytestmark = pytest.mark.asyncio
 

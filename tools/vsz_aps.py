@@ -358,7 +358,12 @@ async def _ap_down() -> list[dict[str, Any]]:
         return [{"error": result["error"], "detail": result.get("detail", "")}]
     all_aps = await adapter.get_all_aps()
     return [
-        {"ap_name": ap.get("deviceName", ""), "status": ap.get("status", ""), "mac": ap.get("deviceMac", ""), "zone": ap.get("zoneName", "")}
+        {
+            "ap_name": ap.get("deviceName", ""),
+            "status": ap.get("status", ""),
+            "mac": ap.get("deviceMac", ""),
+            "zone": ap.get("zoneName", ""),
+        }
         for ap in all_aps
         if ap.get("status", "").lower() not in ("online", "up", "connected")
     ]

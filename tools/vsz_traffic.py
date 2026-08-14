@@ -119,7 +119,6 @@ async def _ap_traffic_stats(zone_id: str | None = None,
     aps: dict[str, dict[str, Any]] = {}
     for c in clients:
         mac = c.get("apMac", "")
-        zid = ap_zone.get(mac, c.get("zoneId", ""))
         if zone_id and c.get("zoneId", "") != zone_id:
             continue
         ap_key = c.get("apName") or mac

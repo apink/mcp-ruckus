@@ -19,7 +19,10 @@ async def _alert_events(
     text_search: str | None = None,
     page: int = 1,
 ) -> dict[str, Any]:
-    logger.info("alert_events: severity=%s category=%s hours_back=%s limit=%d page=%d", severity, category, hours_back, limit, page)
+    logger.info(
+        "alert_events: severity=%s category=%s hours_back=%s limit=%d page=%d",
+        severity, category, hours_back, limit, page,
+    )
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:

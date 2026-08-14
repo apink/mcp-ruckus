@@ -592,11 +592,6 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_lldp_neighbors(host)
 
     @mcp.tool()
-    def ruckus_device_poe_status(host: str) -> dict[str, Any]:
-        """Get PoE status for an ICX switch — power budget, per-port consumption, PD type, priority."""
-        return _device_poe_status(host)
-
-    @mcp.tool()
     def ruckus_device_arp_table(host: str) -> list[dict[str, Any]]:
         """Get ARP table for an ICX switch — IP-to-MAC-to-port mapping for L2/L3 troubleshooting."""
         return _device_arp_table(host)

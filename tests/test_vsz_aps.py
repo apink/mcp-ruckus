@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from tools.vsz_aps import _ap_status, _ap_detail, _ap_down, _ap_high_client_count, _ap_neighbors, _ap_radio_stats
+
+from tools.vsz_aps import _ap_detail, _ap_down, _ap_high_client_count, _ap_neighbors, _ap_radio_stats, _ap_status
 
 pytestmark = pytest.mark.asyncio
 

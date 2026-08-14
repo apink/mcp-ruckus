@@ -76,9 +76,15 @@ async def _client_roaming(query: str, limit: int = 30, severity: str = "Informat
         return {"query": query, "total_events": 0, "total_devices": 0, "devices": []}
 
     devices: dict[str, dict] = {}
-    mac_pattern = re.compile(r'@([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})')
+    mac_pattern = re.compile(
+        r'@([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:'
+        r'[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})'
+    )
     ip_pattern = re.compile(r'@(\d+\.\d+\.\d+\.\d+)@')
-    ap_pattern = re.compile(r'from AP \[([^\]]+@[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})\]')
+    ap_pattern = re.compile(
+        r'from AP \[([^\]]+@[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:'
+        r'[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})\]'
+    )
     ssid_pattern = re.compile(r'on WLAN \[([^\]]+)\]')
 
     for e in events:
@@ -104,7 +110,13 @@ async def _client_roaming(query: str, limit: int = 30, severity: str = "Informat
 
         devices[mac]["ip_addresses"].add(ip)
         devices[mac]["aps"].append({"ap": ap_name, "time": t_str})
-        devices[mac]["events"].append({"time": t_str, "event_type": e.get("eventType", ""), "ap": ap_name, "ip": ip, "activity": act})
+        devices[mac]["events"].append({
+            "time": t_str,
+            "event_type": e.get("eventType", ""),
+            "ap": ap_name,
+            "ip": ip,
+            "activity": act,
+        })
 
     result_devices = []
     for mac, dev in devices.items():

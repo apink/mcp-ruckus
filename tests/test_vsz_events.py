@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+
 from tools.vsz_events import _alert_events
 
 pytestmark = pytest.mark.asyncio

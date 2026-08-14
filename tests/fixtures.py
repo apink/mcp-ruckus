@@ -305,7 +305,10 @@ SAMPLE_EVENTS = {
             "eventCode": 201,
             "severity": "Informational",
             "category": "Client",
-            "activity": "Client user01@cc:dd:ee:11:22:01@203.0.113.50@ roamed from AP [AP-01-02@aa:bb:cc:11:22:02] to AP [AP-01-01@aa:bb:cc:11:22:01] on WLAN [Secure]",
+            "activity": (
+                "Client user01@cc:dd:ee:11:22:01@203.0.113.50@ roamed from AP "
+                "[AP-01-02@aa:bb:cc:11:22:02] to AP [AP-01-01@aa:bb:cc:11:22:01] on WLAN [Secure]"
+            ),
         },
         {
             "id": "evt-003",
@@ -314,7 +317,10 @@ SAMPLE_EVENTS = {
             "eventCode": 200,
             "severity": "Informational",
             "category": "Client",
-            "activity": "Client user02@cc:dd:ee:11:22:02@203.0.113.51@ joined AP [AP-01-02@aa:bb:cc:11:22:02] on WLAN [Secure]",
+            "activity": (
+                "Client user02@cc:dd:ee:11:22:02@203.0.113.51@ joined AP "
+                "[AP-01-02@aa:bb:cc:11:22:02] on WLAN [Secure]"
+            ),
         },
         {
             "id": "evt-004",
@@ -407,8 +413,14 @@ SAMPLE_AP_RADIO_STATS = {
 # ── ICX Device Fixtures ────────────────────────────────────────────
 
 SAMPLE_ICX_DEVICES = [
-    {"host": "203.0.113.1", "name": "SW-DIST-01", "vendor": "ruckus", "role": "distribution", "location": "building a south", "rack": "a"},
-    {"host": "203.0.113.3", "name": "SW-ACCESS-01", "vendor": "ruckus", "role": "access", "location": "building a south", "rack": "a"},
+    {
+        "host": "203.0.113.1", "name": "SW-DIST-01", "vendor": "ruckus",
+        "role": "distribution", "location": "building a south", "rack": "a",
+    },
+    {
+        "host": "203.0.113.3", "name": "SW-ACCESS-01", "vendor": "ruckus",
+        "role": "access", "location": "building a south", "rack": "a",
+    },
 ]
 
 SAMPLE_DEVICE_INFO = {

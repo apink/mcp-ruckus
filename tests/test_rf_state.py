@@ -1,8 +1,7 @@
 """Tests for RF optimization state cache."""
 from __future__ import annotations
 
-import time
-from tools.rf_state import save_optimization, load_optimization
+from tools.rf_state import load_optimization, save_optimization
 
 
 class TestRfState:

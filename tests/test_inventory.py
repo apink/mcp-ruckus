@@ -1,7 +1,7 @@
 """Tests for inventory tools."""
 from __future__ import annotations
 
-from tools.inventory import list_devices, all_device_info, all_device_status, devices_by_location, devices_by_role
+from tools.inventory import all_device_info, all_device_status, devices_by_location, devices_by_role, list_devices
 
 
 class TestListDevices:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+
 from tools.vsz_rogue import _rogue_client_query
 
 pytestmark = pytest.mark.asyncio
