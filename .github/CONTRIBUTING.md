@@ -5,6 +5,18 @@ Focus: **Security, Reliability, Code Cleanliness**.
 
 ---
 
+## RUNNING TESTS
+
+```bash
+pytest tests/ -q
+```
+
+These are **unit tests** for the tools and adapters. They run against mock vSZ/ICX adapters — no real hardware and no live MCP client. They cover tool logic (input validation, command building, output parsing), not the end-to-end MCP connection to an agent.
+
+You'll need `pytest` installed (it's already in the project dependencies). Run the tests after changing code or before releases.
+
+---
+
 ## PRIORITY 0 — SECURITY (Required before production)
 
 ### S1. Input Sanitization — Prevent Command Injection

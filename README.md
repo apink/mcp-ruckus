@@ -242,15 +242,9 @@ For the JSON configs above, add a `headers` field:
 - Config backups store metadata only by default; including the actual config is opt-in.
 - Passwords are never hardcoded in the repo; `.env` and `devices.yaml` are gitignored.
 
-## Tests
+## Development
 
-```bash
-pytest tests/ -q   # 187 unit tests, 12 files
-```
-
-These are **unit tests** for the tools and adapters. They run against mock vSZ/ICX adapters — no real hardware and no live MCP client. They cover tool logic (input validation, command building, output parsing), not the end-to-end MCP connection to an agent.
-
-You'll need `pytest` installed (it's already in the project dependencies). Run the tests after changing code or before releases.
+Contributing, coding guidelines, and how to run the test suite are in [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 To quickly check that the server starts and responds:
 
