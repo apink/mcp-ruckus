@@ -285,6 +285,7 @@ async def _modify_wlan(
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ WLAN management tools."""
     @mcp.tool()
     async def ssid_list(zone_id: str) -> list[dict[str, Any]]:
         """List all SSIDs (WLANs) in a specific zone."""

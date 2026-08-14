@@ -463,6 +463,7 @@ def _device_poe_status(host: str, port: str | None = None) -> dict[str, Any]:
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register ICX device tools (ruckus_ prefix)."""
     @mcp.tool()
     def ruckus_device_info(host: str) -> dict[str, Any]:
         """Get device info for a specific ICX switch."""

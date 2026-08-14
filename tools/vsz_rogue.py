@@ -76,6 +76,7 @@ async def _rogue_client_query(
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ rogue-AP detection tools."""
     @mcp.tool()
     async def rogue_client_query(
         rogue_mac: str | None = None,

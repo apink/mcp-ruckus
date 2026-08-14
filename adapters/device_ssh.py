@@ -232,6 +232,7 @@ class RuckusDeviceDriver:
         return value
 
     def get_device_info(self) -> dict[str, Any]:
+        """Get basic device info — model, serial, version, uptime."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show version", read_timeout=20)
@@ -256,6 +257,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_interfaces_summary(self) -> list[dict[str, Any]]:
+        """Get interface summary — name, status, VLAN, type for all ports."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show interface brief wide", read_timeout=20)
@@ -290,10 +292,12 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_interfaces_down(self) -> list[dict[str, Any]]:
+        """List interfaces that are administratively or operationally down."""
         return [i for i in self.get_interfaces_summary()
                 if isinstance(i, dict) and i.get("link") == "down" and "error" not in i]
 
     def get_interfaces_errors(self) -> list[dict[str, Any]]:
+        """List interfaces with input/output error counters."""
         ports = [i["name"] for i in self.get_interfaces_summary()
                  if isinstance(i, dict) and "error" not in i and PORT_RE.match(i["name"])]
         results: list[dict[str, Any]] = []
@@ -317,6 +321,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_interfaces_stats(self) -> list[dict[str, Any]]:
+        """Get per-interface traffic stats — rx/tx bytes and rates."""
         ports = [i["name"] for i in self.get_interfaces_summary()
                  if isinstance(i, dict) and "error" not in i and PORT_RE.match(i["name"])]
         results: list[dict[str, Any]] = []
@@ -369,6 +374,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_device_status(self) -> dict[str, Any]:
+        """Get device health status — CPU, memory, temperature, fans, PSU."""
         info = self.get_device_info()
         if "error" in info:
             return {"host": self.host, "status": "down", "error": info["error"]}
@@ -406,6 +412,7 @@ class RuckusDeviceDriver:
         conn.send_command_timing("skip-page-display", delay_factor=1, read_timeout=3)
 
     def get_ip_addresses(self) -> list[dict[str, Any]]:
+        """List IP addresses configured on the device."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show ip address", read_timeout=20, cmd_verify=False)
@@ -550,6 +557,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_vlan_summary(self) -> dict[str, Any]:
+        """Get VLAN summary — VLAN IDs, names, and member ports."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show vlan brief", read_timeout=15)
@@ -567,6 +575,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_port_vlan(self, port: str) -> dict[str, Any]:
+        """Get VLAN membership for a single port."""
         try:
             with self._connect() as conn:
                 output = conn.send_command(
@@ -586,6 +595,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "port": port, "error": str(exc)}
 
     def get_mac_table_vlan(self, vlan_id: int) -> list[dict[str, Any]]:
+        """Get MAC address table entries for a VLAN."""
         try:
             with self._connect() as conn:
                 output = conn.send_command(
@@ -617,6 +627,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def find_mac(self, mac: str) -> list[dict[str, Any]]:
+        """Locate a MAC address across the MAC table."""
         try:
             with self._connect() as conn:
                 output = conn.send_command(
@@ -644,6 +655,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_lag_summary(self) -> list[dict[str, Any]]:
+        """Get LAG (link aggregation) group summary."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show lag brief", read_timeout=15)
@@ -678,6 +690,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_chassis_health(self) -> dict[str, Any]:
+        """Get chassis health — fans, PSUs, and temperature sensors."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show chassis", read_timeout=15)
@@ -735,6 +748,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_lldp_neighbors(self) -> list[dict[str, Any]]:
+        """Get LLDP neighbors — remote device, port, and description."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show lldp neighbors", read_timeout=15)
@@ -766,6 +780,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_sfp_info(self, port: str | None = None) -> list[dict[str, Any]]:
+        """Get SFP/transceiver info — port type, vendor, serial. Optional port filter."""
         try:
             with self._connect() as conn:
                 if port:
@@ -794,6 +809,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_cable_diag(self, port: str) -> dict[str, Any]:
+        """Run TDR cable diagnostics on a copper port."""
         _validate_port(port)
         try:
             with self._connect() as conn:
@@ -899,6 +915,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_optic_info(self, port: str) -> dict[str, Any]:
+        """Get SFP optic DOM info — temperature, voltage, tx/rx power."""
         _validate_port(port)
         try:
             with self._connect() as conn:
@@ -950,6 +967,7 @@ class RuckusDeviceDriver:
             result["thresholds"] = thresholds
 
     def get_device_time(self) -> dict[str, Any]:
+        """Get device clock and NTP sync status."""
         try:
             with self._connect() as conn:
                 clk = conn.send_command("show clock", read_timeout=10, expect_string=r"#")
@@ -1005,6 +1023,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_spanning_tree(self, vlan: str | None = None) -> dict[str, Any]:
+        """Get spanning-tree topology — root bridge, port roles, states."""
         try:
             with self._connect() as conn:
                 cmd = f"show span vlan {vlan}" if vlan else "show span"
@@ -1057,6 +1076,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_access_lists(self, name: str | None = None, brief: bool = False) -> dict[str, Any]:
+        """Get IP access lists with their rules."""
         try:
             with self._connect() as conn:
                 if brief:
@@ -1114,6 +1134,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_device_resources(self) -> dict[str, Any]:
+        """Get CPU and memory utilization."""
         try:
             with self._connect() as conn:
                 cpu_out = conn.send_command("show cpu", read_timeout=15)
@@ -1163,6 +1184,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_arp_table(self) -> list[dict[str, Any]]:
+        """Get ARP table — IP-to-MAC-to-port mapping."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show arp", read_timeout=15)
@@ -1195,6 +1217,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_users(self) -> list[dict[str, Any]]:
+        """Get local user accounts (password hash not exposed)."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show users", read_timeout=15)
@@ -1228,6 +1251,7 @@ class RuckusDeviceDriver:
             return [{"host": self.host, "error": str(exc)}]
 
     def get_ssh_status(self) -> dict[str, Any]:
+        """Get SSH server status — version, host key, active sessions."""
         try:
             with self._connect() as conn:
                 output = conn.send_command("show ip ssh", read_timeout=15)
@@ -1291,6 +1315,7 @@ class RuckusDeviceDriver:
             return {"host": self.host, "error": str(exc)}
 
     def get_ipv6_interfaces(self) -> list[dict[str, Any]]:
+        """Get IPv6 interface addresses and status."""
         try:
             with self._connect() as conn:
                 self._no_page(conn)
@@ -1530,6 +1555,7 @@ class RuckusDeviceDriver:
     def set_port_state(
         self, port: str, enable: bool, dry_run: bool = False,
     ) -> dict[str, Any]:
+        """Enable or disable an Ethernet port."""
         _validate_port(port)
         state = "enabled" if enable else "disabled"
         commands = [
@@ -1575,6 +1601,7 @@ class RuckusDeviceDriver:
         stp_priority: int | None = None,
         dry_run: bool = False,
     ) -> dict[str, Any]:
+        """Create a VLAN, optionally with a name and tagged/untagged ports."""
         vlan_ids = _parse_vlan_spec(vlan_spec)
         _validate_ports_spec(tagged_ports)
         _validate_ports_spec(untagged_ports)
@@ -1627,6 +1654,7 @@ class RuckusDeviceDriver:
     def delete_vlan(
         self, vlan_spec: str, dry_run: bool = False,
     ) -> dict[str, Any]:
+        """Delete one or more VLANs."""
         vlan_ids = _parse_vlan_spec(vlan_spec)
         commands = [
             "configure terminal",
@@ -1656,6 +1684,7 @@ class RuckusDeviceDriver:
         self, port: str, vlan_spec: str, action: str, tagged: bool = True,
         dry_run: bool = False,
     ) -> dict[str, Any]:
+        """Add or remove VLAN membership on a port."""
         _validate_port(port)
         vlan_ids = _parse_vlan_spec(vlan_spec)
         if action not in ("add", "remove"):
@@ -1784,6 +1813,7 @@ class RuckusDeviceDriver:
     def get_poe_status(
         self, port: str | None = None,
     ) -> dict[str, Any]:
+        """Get PoE status — budget summary and per-port power. Optional port filter."""
         capacity_re = re.compile(r"Total is (\d+) mWatts.*?Free is (\d+) mWatts")
         # port admin oper consumed allocated pd_type pd_class pri fault
         port_re = re.compile(

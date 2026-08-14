@@ -157,6 +157,7 @@ async def _disconnect_client(client_mac: str, ap_mac: str, confirm: bool = False
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ client tools."""
     @mcp.tool()
     async def client_search(query: str, limit: int = 20, include_traffic: bool = False) -> dict[str, Any]:
         """Search client by ID, username, MAC, or IP.

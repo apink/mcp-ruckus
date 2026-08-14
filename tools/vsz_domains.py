@@ -33,6 +33,7 @@ async def _domain_list() -> list[dict[str, Any]]:
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ domain tools."""
     @mcp.tool()
     async def domain_list() -> list[dict[str, Any]]:
         """List all administration domains visible to the current user."""

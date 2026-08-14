@@ -41,7 +41,7 @@ def _resolve_credentials(device_dict: dict) -> dict:
             try:
                 device_dict[field] = _resolve_env_vars(device_dict[field])
             except KeyError as exc:
-                logger.warning("devices.yaml %s=%s — %s, credential di-reset kosong",
+                logger.warning("devices.yaml %s=%s — %s, credential reset to empty",
                                device_dict.get("name", device_dict.get("host", "?")),
                                device_dict[field], exc)
                 device_dict[field] = ""
@@ -49,6 +49,7 @@ def _resolve_credentials(device_dict: dict) -> dict:
 
 
 def load_inventory() -> list[ICXDevice]:
+    """Load and resolve devices from inventory/devices.yaml."""
     if not INVENTORY_PATH.exists():
         return []
     with INVENTORY_PATH.open("r", encoding="utf-8") as f:
@@ -64,6 +65,7 @@ def load_inventory() -> list[ICXDevice]:
 
 
 def get_device_record(host: str) -> ICXDevice | None:
+    """Find a device by host IP or name."""
     for device in load_inventory():
         if device.host == host or device.name == host:
             return device

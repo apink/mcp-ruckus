@@ -68,6 +68,7 @@ async def _controller_stats() -> dict[str, Any]:
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ system/controller tools."""
     @mcp.tool()
     async def zone_status() -> list[dict[str, Any]]:
         """Get zone status from vSZ."""

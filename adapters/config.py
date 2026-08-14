@@ -15,8 +15,10 @@ class VsZConfig:
     timeout: int = 30
 
     def base_url(self) -> str:
+        """Return the base URL (protocol + host + port)."""
         protocol = "https" if self.port == 8443 else "http"
         return f"{protocol}://{self.host}:{self.port}"
 
     def api_path(self) -> str:
+        """Return the public API base path for the configured version."""
         return f"/wsg/api/public/{self.api_version}"

@@ -57,6 +57,7 @@ async def _alert_events(
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ alert/event tools."""
     @mcp.tool()
     async def alert_events(
         limit: int = 20,

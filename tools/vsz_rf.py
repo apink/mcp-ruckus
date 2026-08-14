@@ -352,6 +352,7 @@ async def _apply_ap_config(
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ RF optimization tools."""
     @mcp.tool()
     async def optimize_wifi_rf(
         zone_id: str | None = None,

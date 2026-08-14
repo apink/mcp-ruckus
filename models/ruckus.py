@@ -16,6 +16,7 @@ class ICXDevice:
     password: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the device as a dict for MCP responses."""
         return {
             "host": self.host,
             "name": self.name,

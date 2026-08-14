@@ -407,6 +407,7 @@ async def _reboot_ap(ap_name: str, confirm: bool = False) -> dict[str, Any]:
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ AP tools."""
     @mcp.tool()
     async def ap_status(zone_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Get AP status from vSZ. Optional zone filter and limit to control response size."""

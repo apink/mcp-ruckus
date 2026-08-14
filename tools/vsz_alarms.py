@@ -47,6 +47,7 @@ async def _alarm_list(
 
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ alarm tools."""
     @mcp.tool()
     async def alarm_list(
         limit: int = 50,

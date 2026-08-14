@@ -210,6 +210,7 @@ async def _zone_traffic_stats() -> dict[str, Any]:
 # ── Tool Registration ─────────────────────────────────
 
 def register_tools(mcp: FastMCP) -> None:
+    """Register vSZ traffic analytics tools."""
     @mcp.tool()
     async def wlan_traffic_stats(ssid: str | None = None,
                                   zone_id: str | None = None,
