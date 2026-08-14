@@ -161,7 +161,23 @@ class MockVsZRestAdapter:
     async def query_clients(self, limit: int = 100, page: int = 1,
                             ssid: str | None = None, ap_name: str | None = None
                             ) -> dict[str, Any]:
-        return {"totalCount": 0, "hasMore": False, "firstIndex": 0, "list": []}
+        clients = list(SAMPLE_CLIENTS["list"])
+        if ssid:
+            clients = [c for c in clients if c.get("ssid") == ssid]
+        if ap_name:
+            clients = [c for c in clients if c.get("apName") == ap_name]
+        start = (page - 1) * limit
+        return {
+            "totalCount": len(clients), "hasMore": len(clients) > start + limit,
+            "firstIndex": start, "list": clients[start:start + limit],
+        }
+
+    async def _request(self, path: str, method: str = "GET", payload: Any = None,
+                       params: Any = None) -> Any:
+        if path == "/domains":
+            return [{"id": "domain-001", "name": "Default Domain",
+                     "description": "", "status": "Active"}]
+        return []
 
     async def modify_wlan(self, zone_id: str, wlan_id: str,
                           updates: dict[str, Any]) -> dict[str, Any]:
@@ -518,6 +534,8 @@ def _apply_mocks():
 
     # Patch inventory BEFORE tools are imported (tools import at module level)
     import inventory.manager as inv_manager
+    inv_manager._REAL_load_inventory = inv_manager.load_inventory
+    inv_manager._REAL_get_device_record = inv_manager.get_device_record
     inv_manager.load_inventory = _mock_load_inventory
     inv_manager.get_device_record = _mock_get_device_record
 

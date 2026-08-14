@@ -4,6 +4,8 @@ import asyncio
 import time
 from typing import Any
 
+from fastmcp import FastMCP
+
 
 async def ping_device(host: str, count: int = 4) -> dict[str, Any]:
     try:
@@ -72,7 +74,7 @@ async def http_latency(url: str, timeout: int = 5) -> dict[str, Any]:
         return {"url": url, "error": str(exc)}
 
 
-def register_tools(mcp):
+def register_tools(mcp: FastMCP) -> None:
     """Register local connectivity test tools."""
 
     @mcp.tool()

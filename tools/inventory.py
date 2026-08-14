@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp import FastMCP
+
 from inventory.manager import load_inventory
 
 
@@ -54,7 +56,7 @@ def devices_by_role(role: str) -> list[dict[str, Any]]:
     return [device.to_dict() for device in load_inventory()
             if device.role == role]
 
-def register_tools(mcp):
+def register_tools(mcp: FastMCP) -> None:
     """Register inventory and bulk device tools."""
 
     @mcp.tool()
