@@ -73,7 +73,7 @@ Total **81 tools** (31 vSZ + 41 ICX + 6 inventory + 3 connectivity).
 | Tool | Description |
 |---|---|
 | `ruckus_device_access_lists` | IP ACL rules + brief summary |
-| `ruckus_device_users` | Local user accounts (hash tidak diekspos) |
+| `ruckus_device_users` | Local user accounts (password hash not exposed) |
 | `ruckus_device_ssh_status` | SSH server status + sesi aktif (user, source IP) |
 | `ruckus_device_spanning_tree` | STP topology |
 | `ruckus_device_time` | Clock + NTP sync status |

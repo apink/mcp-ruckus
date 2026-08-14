@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""pytest test suite untuk Ruckus MCP tools.
-Jalankan: pytest test_tools.py -v
+"""pytest test suite for Ruckus MCP tools.
+Run: pytest test_tools.py -v
 """
 
 import os

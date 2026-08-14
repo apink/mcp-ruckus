@@ -1,10 +1,10 @@
 # inventory/devices.example.yaml
-# Salin ke devices.yaml lalu isi dengan device real.
-# Jangan commit devices.yaml ke git.
+# Copy to devices.yaml and fill in your real devices.
+# Do not commit devices.yaml to git.
 #
 # username / password support env var substitution:
-#   ${VAR_NAME} → baca dari .env
-#   string literal → dipakai langsung
+#   ${VAR_NAME} → read from .env
+#   string literal → used directly
 
 devices:
   # ICX Core — credential via env var
@@ -17,7 +17,7 @@ devices:
     username: ${ICX_CORE_USER}
     password: ${ICX_CORE_PASS}
 
-  # ICX Distribution — credential literal
+  # ICX Distribution — literal credential
   - host: 10.0.0.51
     name: icx-dist-01
     vendor: ruckus
