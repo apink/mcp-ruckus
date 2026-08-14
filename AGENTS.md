@@ -27,7 +27,7 @@ ruff check .
 ## Architecture
 
 ```
-server.py                    # FastMCP entry (SSE + streamable-http)
+server.py                    # FastMCP entry (streamable-http default, SSE legacy)
 ├── adapters/
 │   ├── vsz.py               # vSZ async REST adapter (httpx.AsyncClient)
 │   ├── device_ssh.py        # ICX sync SSH driver (Netmiko)
@@ -44,6 +44,8 @@ server.py                    # FastMCP entry (SSE + streamable-http)
 ## Conventions
 
 - **Type hints required** on all function signatures
+- **Docstrings required** on all public functions and methods (one-line summary)
+- **Language**: all tracked code, comments, and docs in English
 - **snake_case** functions, **PascalCase** classes, **UPPER_SNAKE** constants
 - **Regex**: always raw string `r''`, pre-compiled at module level
 - **vSZ adapter**: async (`async def` + `await`), session reuse with TTL
