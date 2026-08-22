@@ -7,6 +7,7 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-08-22 | Doc/env sync | Tool count corrected to **80** (ICX 40) & tests to **231**; fix broken venv, `pytest-asyncio` dep, editable install, project URL |
 | 2026-08-12 | PoE per-port status + params | `ruckus_device_poe_status` (read-only, per-port filter) + `ruckus_device_poe_port` added `priority`/`power_limit`/`power_by_class` |
 | 2026-08-12 | PoE port control | `ruckus_device_poe_port` — enable/disable PoE without data link interruption |
 | 2026-08-12 | Dry-run preview | All 4 ICX config tools support `dry_run=True` (preview without SSH) |
@@ -21,6 +22,26 @@ Format: [ISO date] — Short description + technical details.
 | 2026-08-05 | Zone tree + 802.1X | `get_zones()` rewrite, `create_wlan` 802.1X, RADIUS |
 
 Complete technical details below.
+
+---
+
+## 2026-08-22 — Documentation & Environment Sync
+
+### Tool count correction (fix)
+- **Issue**: Documentation inconsistency — docs claimed 81 tools but code registered 80; test counts also outdated (187 vs 231)
+- **Root cause**: Historical inaccuracies in changelog not corrected, new features added without syncing all docs
+- **Fix**: Updated all docs to match actual state:
+  - **80 tools** (31 vSZ + 40 ICX + 6 inventory + 3 connectivity)
+  - **231 tests** (12 test files)
+- **Files updated**: AGENTS.md, README.md, docs/TOOLS.md, SKILL.md, SECURITY.md
+- **Note**: CHANGES.md historical entries left unchanged (per project rule: no deletion)
+
+### Environment fixes (fix)
+- **Broken venv**: Interpreter path pointed to non-existent `/home/apink/code/mcp-ruckus/venv` → recreated at correct path `/home/apink/code-dev/mcp-ruckus/venv`
+- **Missing test dependency**: Added `pytest-asyncio>=0.24.0` to dev dependencies in `pyproject.toml`
+- **Editable install**: Fixed hatchling configuration for namespace packages (`adapters`, `inventory`, `models`, `tools`)
+- **Project metadata**: Updated `pyproject.toml` URLs from placeholder `your-org` to actual `apink/mcp-ruckus`
+- **Verification**: All 231 tests pass, `ruff check .` passes
 
 ---
 

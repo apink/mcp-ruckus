@@ -4,21 +4,21 @@ Guidelines for AI coding agents working on this repository.
 
 ## Project
 
-FastMCP-based MCP server for Ruckus wireless (vSZ SmartZone) and switching (ICX) infrastructure. **81 MCP tools** (31 vSZ + 41 ICX + 6 inventory + 3 connectivity).
+FastMCP-based MCP server for Ruckus wireless (vSZ SmartZone) and switching (ICX) infrastructure. **80 MCP tools** (31 vSZ + 40 ICX + 6 inventory + 3 connectivity).
 
 ## Commands
 
 ```bash
 # Setup
 python3 -m venv venv && source venv/bin/activate
-pip install -e .
+pip install -e . pytest pytest-asyncio
 
 # Run server
 cp .env.example .env   # then edit credentials
 python3 server.py
 
 # Test (mock adapters, no real hardware)
-pytest tests/ -q          # 187 tests, 12 files
+pytest tests/ -q          # 231 tests, 12 files
 
 # Lint
 ruff check .
@@ -62,6 +62,6 @@ server.py                    # FastMCP entry (streamable-http default, SSE legac
 |---|---|
 | `.github/CONTRIBUTING.md` | Full dev guidelines (security, reliability, code cleanliness) |
 | `SKILL.md` | Agent skill workflow (copy to agent skills dir) |
-| `docs/TOOLS.md` | Complete 81-tool reference |
+| `docs/TOOLS.md` | Complete 80-tool reference |
 | `DOCS_SAFETY.md` | Destructive tools + dry-run gates |
 | `SECURITY.md` | Security policy |

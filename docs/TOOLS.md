@@ -1,6 +1,6 @@
 # Tool Reference — MCP Ruckus
 
-Total **81 tools** (31 vSZ + 41 ICX + 6 inventory + 3 connectivity).
+Total **80 tools** (31 vSZ + 40 ICX + 6 inventory + 3 connectivity).
 
 ## vSZ AP Tools (7)
 
@@ -22,7 +22,7 @@ Total **81 tools** (31 vSZ + 41 ICX + 6 inventory + 3 connectivity).
 | `apply_rf_recommendation` | Push optimization results to APs (confirm gate) |
 | `apply_ap_config` | Manual channel/power override (confirm gate) |
 
-## vSZ WLAN Tools (6)
+## vSZ WLAN Tools (7)
 
 | Tool | Description |
 |---|---|
@@ -68,7 +68,7 @@ Total **81 tools** (31 vSZ + 41 ICX + 6 inventory + 3 connectivity).
 | `domain_list` | Administration domains |
 | `toggle_wlan` | Enable/disable WLAN (confirm gate) |
 
-## ICX Switch Tools (41)
+## ICX Switch Tools (40)
 
 | Tool | Description |
 |---|---|
