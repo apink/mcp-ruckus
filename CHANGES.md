@@ -7,6 +7,7 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-01 | Context-size optimization | List tools return `{items, total, returned, truncated, hint}` envelope + `MCP_MAX_ITEMS` hard cap + `summary=True` on 3 heaviest tools |
 | 2026-08-22 | Doc/env sync | Tool count corrected to **80** (ICX 40) & tests to **231**; fix broken venv, `pytest-asyncio` dep, editable install, project URL |
 | 2026-08-12 | PoE per-port status + params | `ruckus_device_poe_status` (read-only, per-port filter) + `ruckus_device_poe_port` added `priority`/`power_limit`/`power_by_class` |
 | 2026-08-12 | PoE port control | `ruckus_device_poe_port` — enable/disable PoE without data link interruption |
@@ -22,6 +23,27 @@ Format: [ISO date] — Short description + technical details.
 | 2026-08-05 | Zone tree + 802.1X | `get_zones()` rewrite, `create_wlan` 802.1X, RADIUS |
 
 Complete technical details below.
+
+---
+
+## 2026-09-01 — Context-Size Optimization (Response Envelope + Hard Cap + Summary)
+
+### Response envelope (enhancement)
+- **Files:** `tools/_response.py` (new), `tools/icx_device.py`, `tools/vsz_aps.py`, `tools/vsz_system.py`, `tools/vsz_wlans.py`
+- **Goal:** keep MCP payloads small for small-context models without silent truncation
+- **New helper:** `list_result(items, limit=None, hint="")` returns `{"items", "total", "returned", "truncated", "hint"}`; `MCP_MAX_ITEMS` (default 50) hard-caps list length
+- **Applied to 16 list tools:** ICX (interfaces_summary/down/errors/stats, ip_addresses, ipv6_interfaces, mac_table_vlan, lldp_neighbors, arp_table) + vSZ (ap_status, ap_down, ap_high_client_count, zone_status, zone_ap_list, ssid_list, ssid_list_all)
+- **Error path normalized:** list tools now return `{"error": ...}` dict (not `[{...}]`) on device-not-found/login failure — consistent with AGENTS.md convention
+- **Drill-down hints:** every envelope carries a `hint` field pointing to the detail tool
+
+### Summary mode (enhancement)
+- **Tools:** `ap_status(summary=True)`, `ruckus_device_arp_table(summary=True)`, `ruckus_device_mac_table_vlan(summary=True)`
+- **Returns aggregates only:** ap_status → `{total_aps, up, down, by_zone}`; arp → `{total_entries, by_port, by_type}`; mac → `{total_entries, by_port}`
+- **Docs:** TOOLS.md envelope note, SKILL.md truncated rule, README env table, AGENTS.md convention
+
+### Tests
+- **234 tests pass** (was 231): +3 summary tests (`TestApStatus.test_summary`, `TestArpTable.test_summary`, `TestMacTableVlan.test_summary`)
+- `ruff check .` clean
 
 ---
 

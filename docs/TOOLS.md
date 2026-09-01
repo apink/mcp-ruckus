@@ -2,11 +2,23 @@
 
 Total **80 tools** (31 vSZ + 40 ICX + 6 inventory + 3 connectivity).
 
+## Response envelope
+
+List-returning tools now return a consistent envelope instead of a bare array:
+
+```json
+{"items": [...], "total": 100, "returned": 50, "truncated": true, "hint": "..."}
+```
+
+- `truncated=true` means more records exist — drill down by ID (see `hint`) rather than re-querying the full list.
+- `returned` is capped by `MCP_MAX_ITEMS` (default 50).
+- Some heavy tools add a `summary=True` parameter to return aggregate counts only.
+
 ## vSZ AP Tools (7)
 
 | Tool | Description |
 |---|---|
-| `ap_status` | AP status with optional zone filter |
+| `ap_status` | AP status with optional zone filter; `summary=True` for aggregate counts |
 | `ap_detail` | Detailed AP info |
 | `ap_radio_stats` | Real-time per-radio stats (noise, airtime, retry) |
 | `ap_neighbors` | RF neighbor data (AP/zone/all scope) |
@@ -88,7 +100,7 @@ Total **80 tools** (31 vSZ + 40 ICX + 6 inventory + 3 connectivity).
 | `ruckus_device_ipv6_routes` | IPv6 routing table |
 | `ruckus_device_vlan_summary` | VLAN summary |
 | `ruckus_device_port_vlan` | VLAN per port |
-| `ruckus_device_mac_table_vlan` | MAC table by VLAN |
+| `ruckus_device_mac_table_vlan` | MAC table by VLAN; `summary=True` for aggregate counts |
 | `ruckus_device_find_mac` | Locate MAC across device |
 | `ruckus_device_lag_summary` | LAG status |
 | `ruckus_device_lldp_neighbors` | LLDP neighbors (topology) |
@@ -99,7 +111,7 @@ Total **80 tools** (31 vSZ + 40 ICX + 6 inventory + 3 connectivity).
 | `ruckus_device_cable_diag` | TDR cable diagnostics |
 | `ruckus_device_sfp_info` | SFP/transceiver types |
 | `ruckus_device_resources` | CPU and memory utilization |
-| `ruckus_device_arp_table` | ARP table (IP→MAC→port) |
+| `ruckus_device_arp_table` | ARP table (IP→MAC→port); `summary=True` for aggregate counts |
 | `ruckus_device_port_state` | Enable/disable port (admin up/down) (confirm gate) |
 | `ruckus_device_vlan_create` | Create VLAN (single/range/multi + name + ports) (confirm gate) |
 | `ruckus_device_vlan_delete` | Delete VLAN (single/range/multi) (confirm gate) |

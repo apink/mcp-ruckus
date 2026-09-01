@@ -65,6 +65,7 @@ Connectivity (3): ping_device, check_port, http_latency
 - **Error return format**: `{"error": "...", "detail": "..."}` — not exceptions
 - **vSZ session TTL**: 10 minutes, auto re-login
 - **Large scale**: 1000 AP → `ap_status` needs 20+ serial calls. Use zone filters and limits.
+- **List tools return an envelope**: `{"items", "total", "returned", "truncated", "hint"}`. If `truncated=true`, drill down by ID (see `hint`) — don't re-query the full list. Heavy tools (`ap_status`, `ruckus_device_arp_table`, `ruckus_device_mac_table_vlan`) accept `summary=True` for aggregate counts only.
 
 ## Workflows
 

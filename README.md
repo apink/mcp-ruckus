@@ -124,6 +124,7 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 | `MCP_HOST` | Which network address to listen on (`0.0.0.0` = all) | `0.0.0.0` |
 | `MCP_PORT` | Which port the server listens on | `8000` |
 | `LOG_LEVEL` | How much logging you want | `INFO` |
+| `MCP_MAX_ITEMS` | Hard cap on list length returned by list tools | `50` |
 | `MCP_API_KEY` | Optional password the AI must send to connect | - |
 | `MCP_ALLOWED_IPS` | Optional whitelist of IPs allowed to connect | `10.0.0.0/8` |
 
