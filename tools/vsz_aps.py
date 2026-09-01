@@ -134,13 +134,20 @@ async def _fetch_neighbors_batch(
     return results, errors
 
 
-async def _ap_status(zone_id: str | None = None, limit: int = 100) -> dict[str, Any]:
-    logger.info("ap_status: zone=%s limit=%d", zone_id, limit)
+async def _ap_status(zone_id: str | None = None, limit: int = 100, summary: bool = False) -> dict[str, Any]:
+    logger.info("ap_status: zone=%s limit=%d summary=%s", zone_id, limit, summary)
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
         return {"error": result["error"], "detail": result.get("detail", "")}
     aps = await adapter.get_aps_by_zone(zone_id) if zone_id else await adapter.get_all_aps()
+    if summary:
+        up = sum(1 for a in aps if a.get("status", "").lower() in ("online", "up", "connected"))
+        by_zone: dict[str, int] = {}
+        for a in aps:
+            zn = a.get("zoneName", "") or "unknown"
+            by_zone[zn] = by_zone.get(zn, 0) + 1
+        return {"total_aps": len(aps), "up": up, "down": len(aps) - up, "by_zone": by_zone}
     rows = [
         {
             "ap_name": ap.get("deviceName", ""),
@@ -413,13 +420,14 @@ async def _reboot_ap(ap_name: str, confirm: bool = False) -> dict[str, Any]:
 def register_tools(mcp: FastMCP) -> None:
     """Register vSZ AP tools."""
     @mcp.tool()
-    async def ap_status(zone_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+    async def ap_status(zone_id: str | None = None, limit: int = 100, summary: bool = False) -> dict[str, Any]:
         """Get AP status from vSZ. Optional zone filter and limit to control response size.
 
         Returns {"items", "total", "returned", "truncated"}; set limit to page,
-        truncated=True means more APs available.
+        truncated=True means more APs available. summary=True returns aggregate
+        counts (total_aps, up, down, by_zone) instead of the full list.
         """
-        return await _ap_status(zone_id=zone_id, limit=limit)
+        return await _ap_status(zone_id=zone_id, limit=limit, summary=summary)
 
     @mcp.tool()
     async def ap_detail(ap_name: str) -> dict[str, Any]:

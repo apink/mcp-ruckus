@@ -48,6 +48,13 @@ class TestApStatus:
         assert result["total"] == 5
         assert result["truncated"] is True
 
+    async def test_summary(self):
+        result = await _ap_status(summary=True)
+        assert result["total_aps"] == 5
+        assert "up" in result
+        assert "down" in result
+        assert "by_zone" in result
+
 
 class TestApDetail:
     async def test_known_ap(self):

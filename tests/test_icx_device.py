@@ -138,6 +138,11 @@ class TestMacTableVlan:
         assert len(result["items"]) == 1
         assert result["items"][0]["vlan"] == 100
 
+    def test_summary(self):
+        result = _device_mac_table_vlan("203.0.113.1", 100, summary=True)
+        assert result["total_entries"] == 1
+        assert result["by_port"]["1/2/1"] == 1
+
 
 class TestFindMac:
     def test_returns_port(self):
@@ -268,6 +273,12 @@ class TestArpTable:
         assert isinstance(result, dict)
         assert len(result["items"]) == 1
         assert result["items"][0]["ip"] == "203.0.113.81"
+
+    def test_summary(self):
+        result = _device_arp_table("203.0.113.1", summary=True)
+        assert result["total_entries"] == 1
+        assert result["by_port"]["1/1/23"] == 1
+        assert result["by_type"]["Dynamic"] == 1
 
 
 class TestDeviceResources:

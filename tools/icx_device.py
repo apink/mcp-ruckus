@@ -109,12 +109,19 @@ def _device_port_vlan(host: str, port: str) -> dict[str, Any]:
     return driver.get_port_vlan(port)
 
 
-def _device_mac_table_vlan(host: str, vlan_id: int) -> dict[str, Any]:
+def _device_mac_table_vlan(host: str, vlan_id: int, summary: bool = False) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_mac_table_vlan(vlan_id))
+    entries = driver.get_mac_table_vlan(vlan_id)
+    if summary:
+        by_port: dict[str, int] = {}
+        for e in entries:
+            p = e.get("port", "") or "unknown"
+            by_port[p] = by_port.get(p, 0) + 1
+        return {"total_entries": len(entries), "by_port": by_port}
+    return list_result(entries)
 
 
 def _device_find_mac(host: str, mac: str) -> list[dict[str, Any]]:
@@ -272,13 +279,23 @@ def _device_poe_status(host: str) -> dict[str, Any]:
     return driver.get_poe_status()
 
 
-def _device_arp_table(host: str) -> dict[str, Any]:
-    logger.info("device_arp_table: host=%s", host)
+def _device_arp_table(host: str, summary: bool = False) -> dict[str, Any]:
+    logger.info("device_arp_table: host=%s summary=%s", host, summary)
     device = get_device_record(host)
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_arp_table())
+    entries = driver.get_arp_table()
+    if summary:
+        by_port: dict[str, int] = {}
+        by_type: dict[str, int] = {}
+        for e in entries:
+            p = e.get("port", "") or "unknown"
+            t = e.get("type", "") or "unknown"
+            by_port[p] = by_port.get(p, 0) + 1
+            by_type[t] = by_type.get(t, 0) + 1
+        return {"total_entries": len(entries), "by_port": by_port, "by_type": by_type}
+    return list_result(entries)
 
 
 def _device_resources(host: str) -> dict[str, Any]:
@@ -521,9 +538,13 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_port_vlan(host, port)
 
     @mcp.tool()
-    def ruckus_device_mac_table_vlan(host: str, vlan_id: int) -> dict[str, Any]:
-        """Get MAC address table for a specific VLAN on an ICX switch."""
-        return _device_mac_table_vlan(host, vlan_id)
+    def ruckus_device_mac_table_vlan(host: str, vlan_id: int, summary: bool = False) -> dict[str, Any]:
+        """Get MAC address table for a specific VLAN on an ICX switch.
+
+        summary=True returns aggregate counts (total_entries, by_port)
+        instead of the full list.
+        """
+        return _device_mac_table_vlan(host, vlan_id, summary=summary)
 
     @mcp.tool()
     def ruckus_device_find_mac(host: str, mac: str) -> list[dict[str, Any]]:
@@ -594,9 +615,13 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_lldp_neighbors(host)
 
     @mcp.tool()
-    def ruckus_device_arp_table(host: str) -> dict[str, Any]:
-        """Get ARP table for an ICX switch — IP-to-MAC-to-port mapping for L2/L3 troubleshooting."""
-        return _device_arp_table(host)
+    def ruckus_device_arp_table(host: str, summary: bool = False) -> dict[str, Any]:
+        """Get ARP table for an ICX switch — IP-to-MAC-to-port mapping for L2/L3 troubleshooting.
+
+        summary=True returns aggregate counts (total_entries, by_port, by_type)
+        instead of the full list.
+        """
+        return _device_arp_table(host, summary=summary)
 
     @mcp.tool()
     def ruckus_device_resources(host: str) -> dict[str, Any]:
