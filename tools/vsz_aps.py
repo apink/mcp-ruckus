@@ -376,7 +376,7 @@ async def _ap_down() -> dict[str, Any]:
         for ap in all_aps
         if ap.get("status", "").lower() not in ("online", "up", "connected")
     ]
-    return list_result(rows)
+    return list_result(rows, hint="use ap_detail(ap_name=...) for full record")
 
 
 async def _ap_high_client_count(threshold: int = 50) -> dict[str, Any]:
@@ -390,7 +390,7 @@ async def _ap_high_client_count(threshold: int = 50) -> dict[str, Any]:
         for ap in all_aps
         if ap.get("numClients", 0) > threshold
     ]
-    return list_result(rows)
+    return list_result(rows, hint="use client_search(query=...) for per-client detail")
 
 
 async def _reboot_ap(ap_name: str, confirm: bool = False) -> dict[str, Any]:

@@ -22,7 +22,7 @@ async def _ssid_list(zone_id: str) -> dict[str, Any]:
         {"ssid": w.get("ssid", ""), "name": w.get("name", ""), "id": w.get("id", ""), "zone_id": w.get("zoneId", "")}
         for w in wlans
     ]
-    return list_result(rows)
+    return list_result(rows, hint="use ssid_detail(wlan_id=..., zone_id=...) for full config")
 
 
 async def _ssid_list_all() -> dict[str, Any]:
@@ -45,7 +45,7 @@ async def _ssid_list_all() -> dict[str, Any]:
                     "zone_id": zone_id,
                     "zone": zone_name,
                 })
-    return list_result(all_ssids)
+    return list_result(all_ssids, hint="use ssid_detail(wlan_id=..., zone_id=...) for full config")
 
 
 async def _ssid_detail(wlan_id: str, zone_id: str) -> dict[str, Any]:

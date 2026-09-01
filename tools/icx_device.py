@@ -42,7 +42,7 @@ def _device_interfaces_summary(host: str) -> dict[str, Any]:
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_interfaces_summary())
+    return list_result(driver.get_interfaces_summary(), hint="see ruckus_device_port_vlan for per-port VLAN")
 
 
 def _device_interfaces_down(host: str) -> dict[str, Any]:
@@ -50,7 +50,7 @@ def _device_interfaces_down(host: str) -> dict[str, Any]:
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_interfaces_down())
+    return list_result(driver.get_interfaces_down(), hint="see ruckus_device_interfaces_summary for full detail")
 
 
 def _device_interfaces_errors(host: str) -> dict[str, Any]:
@@ -58,7 +58,7 @@ def _device_interfaces_errors(host: str) -> dict[str, Any]:
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_interfaces_errors())
+    return list_result(driver.get_interfaces_errors(), hint="see ruckus_device_cable_diag for TDR diagnostics")
 
 
 def _device_interfaces_stats(host: str) -> dict[str, Any]:
@@ -66,7 +66,7 @@ def _device_interfaces_stats(host: str) -> dict[str, Any]:
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_interfaces_stats())
+    return list_result(driver.get_interfaces_stats(), hint="see ruckus_device_interfaces_errors for error counters")
 
 
 def _device_ip_addresses(host: str) -> dict[str, Any]:
@@ -74,7 +74,7 @@ def _device_ip_addresses(host: str) -> dict[str, Any]:
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_ip_addresses())
+    return list_result(driver.get_ip_addresses(), hint="see ruckus_device_ip_routes for routing table")
 
 
 def _device_ip_routes(host: str, destination: str | None = None) -> dict[str, Any]:
@@ -121,7 +121,7 @@ def _device_mac_table_vlan(host: str, vlan_id: int, summary: bool = False) -> di
             p = e.get("port", "") or "unknown"
             by_port[p] = by_port.get(p, 0) + 1
         return {"total_entries": len(entries), "by_port": by_port}
-    return list_result(entries)
+    return list_result(entries, hint="see ruckus_device_find_mac to locate a MAC")
 
 
 def _device_find_mac(host: str, mac: str) -> list[dict[str, Any]]:
@@ -153,7 +153,7 @@ def _device_ipv6_interfaces(host: str) -> dict[str, Any]:
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_ipv6_interfaces())
+    return list_result(driver.get_ipv6_interfaces(), hint="see ruckus_device_ipv6_routes for IPv6 routes")
 
 
 def _device_ping(host: str, ip: str, source: str | None = None) -> dict[str, Any]:
@@ -267,7 +267,7 @@ def _device_lldp_neighbors(host: str) -> dict[str, Any]:
     if not device:
         return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return list_result(driver.get_lldp_neighbors())
+    return list_result(driver.get_lldp_neighbors(), hint="see ruckus_device_interfaces_summary for port detail")
 
 
 def _device_poe_status(host: str) -> dict[str, Any]:
@@ -295,7 +295,7 @@ def _device_arp_table(host: str, summary: bool = False) -> dict[str, Any]:
             by_port[p] = by_port.get(p, 0) + 1
             by_type[t] = by_type.get(t, 0) + 1
         return {"total_entries": len(entries), "by_port": by_port, "by_type": by_type}
-    return list_result(entries)
+    return list_result(entries, hint="see ruckus_device_find_mac to locate a MAC")
 
 
 def _device_resources(host: str) -> dict[str, Any]:

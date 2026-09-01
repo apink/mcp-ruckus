@@ -29,7 +29,7 @@ async def _zone_status() -> dict[str, Any]:
         }
         for z in zones
     ]
-    return list_result(rows)
+    return list_result(rows, hint="use zone_ap_list(zone_id=...) for APs in a zone")
 
 
 async def _zone_ap_list(zone_id: str) -> dict[str, Any]:
@@ -48,7 +48,7 @@ async def _zone_ap_list(zone_id: str) -> dict[str, Any]:
         }
         for ap in aps
     ]
-    return list_result(rows)
+    return list_result(rows, hint="use ap_detail(ap_name=...) for full record")
 
 
 async def _license_status() -> dict[str, Any]:
