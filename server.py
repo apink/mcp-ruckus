@@ -48,6 +48,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ruckus-mcp")
 
+# ── Log noise control ──────────────────────────────────────────────
+# mcp.server.lowlevel.server and paramiko.transport emit an INFO line for
+# every MCP request and SSH session. Silence them to WARNING (keep real
+# warnings/errors) unless LOG_LEVEL=DEBUG is requested for full detail.
+if os.getenv("LOG_LEVEL", "INFO").upper() != "DEBUG":
+    for _noisy in ("mcp.server.lowlevel.server", "paramiko.transport"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 mcp = FastMCP("Ruckus MCP")
 register_all_tools(mcp)
 
@@ -165,6 +173,7 @@ def main() -> None:
         host=host,
         port=port,
         log_level=os.getenv("LOG_LEVEL", "info").lower(),
+        access_log=os.getenv("LOG_LEVEL", "info").upper() == "DEBUG",
     )
 
 
