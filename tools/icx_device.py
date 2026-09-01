@@ -480,6 +480,40 @@ def _device_poe_status(host: str, port: str | None = None) -> dict[str, Any]:
     return driver.get_poe_status(port=port)
 
 
+def _device_ip_route(
+    host: str, dest: str, mask: str, next_hop: str,
+    metric: int | None = None, distance: int | None = None,
+    name: str | None = None, tag: int | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_ip_route: host=%s dest=%s/%s next_hop=%s dry_run=%s",
+        host, dest, mask, next_hop, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "dest": dest, "mask": mask, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.add_static_route(
+        dest, mask, next_hop, metric=metric, distance=distance,
+        name=name, tag=tag, dry_run=dry_run,
+    )
+
+
+def _device_ip_route_delete(
+    host: str, dest: str, mask: str, next_hop: str, dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_ip_route_delete: host=%s dest=%s/%s next_hop=%s dry_run=%s",
+        host, dest, mask, next_hop, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "dest": dest, "mask": mask, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.delete_static_route(dest, mask, next_hop, dry_run=dry_run)
+
+
 def register_tools(mcp: FastMCP) -> None:
     """Register ICX device tools (ruckus_ prefix)."""
     @mcp.tool()
@@ -863,3 +897,80 @@ def register_tools(mcp: FastMCP) -> None:
             port: Optional port (e.g. '1/1/1') for single-port lookup.
         """
         return _device_poe_status(host, port=port)
+
+    # ── Static Route Tools (destructive) ──────────────────────────
+
+    @mcp.tool()
+    def ruckus_device_ip_route(
+        host: str,
+        dest: str,
+        mask: str,
+        next_hop: str,
+        metric: int | None = None,
+        distance: int | None = None,
+        name: str | None = None,
+        tag: int | None = None,
+        confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Add a static IPv4 route to an ICX switch.
+
+        next_hop may be an IPv4 next-hop address, 'null0' (blackhole/drop),
+        or an outgoing interface ('ethernet 1/1/1', 'lag 1', 've 10').
+
+        Args:
+            host: Device host from inventory.
+            dest: Destination IPv4 address (e.g. '192.0.2.0').
+            mask: Dotted-quad netmask (e.g. '255.255.255.0').
+            next_hop: Next hop — IPv4 address, 'null0', 'ethernet <port>',
+                      'lag <id>', or 've <id>'.
+            metric: Optional cost metric (1-16, default 1).
+            distance: Optional administrative distance (1-255).
+            name: Optional route name (alphanumeric/_/./-, 1-32 chars).
+            tag: Optional route tag (0-4294967295).
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_ip_route(
+                host, dest, mask, next_hop, metric=metric, distance=distance,
+                name=name, tag=tag, dry_run=True,
+            )
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to add static route",
+            }
+        return _device_ip_route(
+            host, dest, mask, next_hop, metric=metric, distance=distance,
+            name=name, tag=tag,
+        )
+
+    @mcp.tool()
+    def ruckus_device_ip_route_delete(
+        host: str,
+        dest: str,
+        mask: str,
+        next_hop: str,
+        confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Delete a static IPv4 route from an ICX switch.
+
+        Args:
+            host: Device host from inventory.
+            dest: Destination IPv4 address (e.g. '192.0.2.0').
+            mask: Dotted-quad netmask (e.g. '255.255.255.0').
+            next_hop: Next hop to remove — same form used when adding
+                      (IPv4 address, 'null0', 'ethernet <port>', 'lag <id>', or 've <id>').
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_ip_route_delete(host, dest, mask, next_hop, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to delete static route",
+            }
+        return _device_ip_route_delete(host, dest, mask, next_hop)

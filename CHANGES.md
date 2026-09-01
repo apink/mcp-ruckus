@@ -7,6 +7,7 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-01 | Static IPv4 route | `ruckus_device_ip_route` + `_delete` — add/delete static IPv4 route (next-hop/null0/interface) with `confirm` + `dry_run` |
 | 2026-09-01 | Context-size optimization | All 30 list tools return `{items, total, returned, truncated, hint}` envelope + `MCP_MAX_ITEMS` hard cap + `summary=True` on 3 heaviest tools |
 | 2026-08-22 | Doc/env sync | Tool count corrected to **80** (ICX 40) & tests to **231**; fix broken venv, `pytest-asyncio` dep, editable install, project URL |
 | 2026-08-12 | PoE per-port status + params | `ruckus_device_poe_status` (read-only, per-port filter) + `ruckus_device_poe_port` added `priority`/`power_limit`/`power_by_class` |
@@ -45,6 +46,22 @@ Complete technical details below.
 ### Tests
 - **234 tests pass** (was 231): +3 summary tests (`TestApStatus.test_summary`, `TestArpTable.test_summary`, `TestMacTableVlan.test_summary`)
 - `ruff check .` clean
+
+---
+
+## 2026-09-01 — Static IPv4 Route Add/Delete (ICX)
+
+### New tools: `ruckus_device_ip_route` + `ruckus_device_ip_route_delete` (enhancement)
+- **Files:** `adapters/device_ssh.py`, `tools/icx_device.py`
+- **Add:** `ruckus_device_ip_route(host, dest, mask, next_hop, metric=None, distance=None, name=None, tag=None, confirm=False, dry_run=False)` → `ip route <dest> <mask> <next-hop>`
+- **Delete:** `ruckus_device_ip_route_delete(host, dest, mask, next_hop, confirm=False, dry_run=False)` → `no ip route <dest> <mask> <next-hop>`
+- **next-hop:** IPv4 address, `null0` (blackhole/drop), or outgoing interface (`ethernet <port>`, `lag <id>`, `ve <id>`)
+- **Add optional params:** `metric` (1-16), `distance` (1-255), `name`, `tag` (0-4294967295)
+- **Safety:** `confirm=True` gate + `dry_run=True` preview (same pattern as other ICX config tools)
+- **Validation:** new validators `_validate_netmask`, `_validate_route_metric`, `_validate_route_distance`, `_validate_route_name`, `_validate_route_tag`, `_normalize_next_hop` — block command injection
+- **Live-tested:** added `192.0.2.0/24 null0` then deleted it on `10.80.172.32` (acc-poc) — routing table verified before/after
+- **Tests:** +14 (TestIpRoute 5, TestIpRouteDelete 4, TestIpRouteValidation 5) — 234 → 248 pytest pass
+- **Tool count:** 80 → 82 tools, ICX 40 → 42
 
 ---
 

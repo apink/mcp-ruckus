@@ -1,9 +1,9 @@
 ---
 name: ruckus-mcp
-description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 80 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
+description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 82 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
 ---
 
-# Ruckus MCP Skill — 80 tools
+# Ruckus MCP Skill — 82 tools
 
 ## How to Install This Skill
 
@@ -35,10 +35,11 @@ vSZ (31): ap_status, ap_detail, ap_radio_stats, ap_down, client_search, ap_high_
           toggle_wlan, modify_wlan, reboot_ap, disconnect_client, wlan_traffic_stats,
           ap_traffic_stats, zone_traffic_stats, controller_stats
 
-ICX (41): ruckus_device_info, ruckus_device_status,
+ICX (42): ruckus_device_info, ruckus_device_status,
           ruckus_device_interfaces_summary, ruckus_device_interfaces_down,
           ruckus_device_interfaces_errors, ruckus_device_interfaces_stats,
-          ruckus_device_ip_addresses, ruckus_device_ip_routes, ruckus_device_ipv6_routes,
+          ruckus_device_ip_addresses, ruckus_device_ip_routes, ruckus_device_ip_route,
+          ruckus_device_ip_route_delete, ruckus_device_ipv6_routes,
           ruckus_device_vlan_summary, ruckus_device_port_vlan, ruckus_device_mac_table_vlan,
           ruckus_device_find_mac, ruckus_device_lag_summary, ruckus_device_lldp_neighbors,
           ruckus_device_poe_status, ruckus_device_arp_table, ruckus_device_chassis_health,
@@ -60,7 +61,7 @@ Connectivity (3): ping_device, check_port, http_latency
 
 ## Critical Rules
 
-- **12 destructive tools require `confirm=True`**: `apply_rf_recommendation`, `apply_ap_config`, `create_wlan`, `modify_wlan`, `reboot_ap`, `disconnect_client`, `toggle_wlan`, `ruckus_device_port_state`, `ruckus_device_vlan_create`, `ruckus_device_vlan_delete`, `ruckus_device_vlan_port`, `ruckus_device_poe_port`
+- **14 destructive tools require `confirm=True`**: `apply_rf_recommendation`, `apply_ap_config`, `create_wlan`, `modify_wlan`, `reboot_ap`, `disconnect_client`, `toggle_wlan`, `ruckus_device_port_state`, `ruckus_device_vlan_create`, `ruckus_device_vlan_delete`, `ruckus_device_vlan_port`, `ruckus_device_poe_port`, `ruckus_device_ip_route`, `ruckus_device_ip_route_delete`
 - **Pick host by IP, not name** — names are not unique in `devices.yaml`
 - **Error return format**: `{"error": "...", "detail": "..."}` — not exceptions
 - **vSZ session TTL**: 10 minutes, auto re-login
@@ -143,6 +144,13 @@ Connectivity (3): ping_device, check_port, http_latency
 4. `ruckus_device_vlan_port(host="...", port="1/1/5", vlan_spec="300", action="add", tagged=True, confirm=True)` → add port to existing VLAN
 5. `ruckus_device_vlan_port(host="...", port="1/1/5", vlan_spec="300", action="remove", tagged=True, confirm=True)` → remove port from VLAN
 6. `ruckus_device_vlan_delete(host="...", vlan_spec="200 to 205", confirm=True)` → delete VLAN
+
+### Static route management
+1. `ruckus_device_ip_routes(host="...")` → view current IPv4 routing table
+2. `ruckus_device_ip_route(host="...", dest="192.0.2.0", mask="255.255.255.0", next_hop="203.0.113.254", confirm=True)` → add route via next-hop IP
+3. `ruckus_device_ip_route(host="...", dest="198.51.100.0", mask="255.255.255.0", next_hop="null0", confirm=True)` → add blackhole route
+4. `ruckus_device_ip_route(host="...", dest="203.0.113.128", mask="255.255.255.128", next_hop="null0", name="BLACKHOLE", dry_run=True)` → preview command before executing
+5. `ruckus_device_ip_route_delete(host="...", dest="198.51.100.0", mask="255.255.255.0", next_hop="null0", confirm=True)` → delete route
 
 ## Known Pitfalls & Bugs
 

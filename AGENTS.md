@@ -4,7 +4,7 @@ Guidelines for AI coding agents working on this repository.
 
 ## Project
 
-FastMCP-based MCP server for Ruckus wireless (vSZ SmartZone) and switching (ICX) infrastructure. **80 MCP tools** (31 vSZ + 40 ICX + 6 inventory + 3 connectivity).
+FastMCP-based MCP server for Ruckus wireless (vSZ SmartZone) and switching (ICX) infrastructure. **82 MCP tools** (31 vSZ + 42 ICX + 6 inventory + 3 connectivity).
 
 ## Commands
 
@@ -18,7 +18,7 @@ cp .env.example .env   # then edit credentials
 python3 server.py
 
 # Test (mock adapters, no real hardware)
-pytest tests/ -q          # 231 tests, 12 files
+pytest tests/ -q          # 248 tests, 12 files
 
 # Lint
 ruff check .

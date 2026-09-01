@@ -1,6 +1,15 @@
 """Tests for icx_device tools."""
 from __future__ import annotations
 
+import pytest
+
+from adapters.device_ssh import (
+    _normalize_next_hop,
+    _validate_netmask,
+    _validate_route_distance,
+    _validate_route_metric,
+    _validate_route_tag,
+)
 from tools.icx_device import (
     _device_access_lists,
     _device_arp_table,
@@ -15,6 +24,8 @@ from tools.icx_device import (
     _device_interfaces_stats,
     _device_interfaces_summary,
     _device_ip_addresses,
+    _device_ip_route,
+    _device_ip_route_delete,
     _device_ip_routes,
     _device_ipv6_interfaces,
     _device_ipv6_routes,
@@ -558,5 +569,91 @@ class TestPoePort:
 
     def test_enable_with_priority_and_class(self):
         r = _device_poe_port("203.0.113.1", "1/1/1", enable=True,
-                             priority=2, power_by_class=4)
+                              priority=2, power_by_class=4)
         assert r["success"] is True
+
+
+class TestIpRoute:
+    def test_unknown_device(self):
+        r = _device_ip_route("192.168.99.99", "192.0.2.0", "255.255.255.0", "null0")
+        assert r["error"] == "device_not_found"
+
+    def test_add_nexthop_ip(self):
+        r = _device_ip_route("203.0.113.1", "192.0.2.0", "255.255.255.0", "203.0.113.254")
+        assert r["added"] is True
+        assert r["dest"] == "192.0.2.0"
+        assert r["mask"] == "255.255.255.0"
+        assert r["next_hop"] == "203.0.113.254"
+
+    def test_add_null0(self):
+        r = _device_ip_route("203.0.113.1", "203.0.113.128", "255.255.255.128", "null0")
+        assert r["added"] is True
+        assert r["next_hop"] == "null0"
+
+    def test_add_with_optional_params(self):
+        r = _device_ip_route("203.0.113.1", "198.51.100.0", "255.255.255.0",
+                             "203.0.113.254", metric=10, distance=200,
+                             name="BLACKHOLE", tag=5)
+        assert r["added"] is True
+
+    def test_dry_run(self):
+        r = _device_ip_route("203.0.113.1", "192.0.2.0", "255.255.255.0",
+                             "203.0.113.254", dry_run=True)
+        assert r["dry_run"] is True
+        assert "commands" in r
+        assert len(r["commands"]) == 3
+
+
+class TestIpRouteDelete:
+    def test_unknown_device(self):
+        r = _device_ip_route_delete("192.168.99.99", "192.0.2.0", "255.255.255.0", "null0")
+        assert r["error"] == "device_not_found"
+
+    def test_delete_null0(self):
+        r = _device_ip_route_delete("203.0.113.1", "192.0.2.0", "255.255.255.0", "null0")
+        assert r["deleted"] is True
+        assert r["dest"] == "192.0.2.0"
+        assert r["next_hop"] == "null0"
+
+    def test_delete_nexthop_ip(self):
+        r = _device_ip_route_delete("203.0.113.1", "198.51.100.0", "255.255.255.0", "203.0.113.254")
+        assert r["deleted"] is True
+        assert r["next_hop"] == "203.0.113.254"
+
+    def test_dry_run(self):
+        r = _device_ip_route_delete("203.0.113.1", "192.0.2.0", "255.255.255.0",
+                                    "null0", dry_run=True)
+        assert r["dry_run"] is True
+        assert "commands" in r
+        assert len(r["commands"]) == 3
+
+
+class TestIpRouteValidation:
+    def test_normalize_next_hop_types(self):
+        assert _normalize_next_hop("null0") == "null0"
+        assert _normalize_next_hop("203.0.113.254") == "203.0.113.254"
+        assert _normalize_next_hop("ethernet 1/1/1") == "ethernet 1/1/1"
+        assert _normalize_next_hop("lag 2") == "lag 2"
+        assert _normalize_next_hop("ve 10") == "ve 10"
+
+    def test_normalize_next_hop_rejects_injection(self):
+        with pytest.raises(ValueError):
+            _normalize_next_hop("203.0.113.254; rm -rf /")
+
+    def test_netmask_validation(self):
+        assert _validate_netmask("255.255.255.0") == "255.255.255.0"
+        with pytest.raises(ValueError):
+            _validate_netmask("999.0.0.0")
+
+    def test_metric_and_distance_ranges(self):
+        assert _validate_route_metric(16) == 16
+        assert _validate_route_distance(255) == 255
+        with pytest.raises(ValueError):
+            _validate_route_metric(0)
+        with pytest.raises(ValueError):
+            _validate_route_distance(300)
+
+    def test_tag_range(self):
+        assert _validate_route_tag(0) == 0
+        with pytest.raises(ValueError):
+            _validate_route_tag(-1)

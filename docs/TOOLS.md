@@ -1,6 +1,6 @@
 # Tool Reference — MCP Ruckus
 
-Total **80 tools** (31 vSZ + 40 ICX + 6 inventory + 3 connectivity).
+Total **82 tools** (31 vSZ + 42 ICX + 6 inventory + 3 connectivity).
 
 ## Response envelope
 
@@ -80,7 +80,7 @@ List-returning tools now return a consistent envelope instead of a bare array:
 | `domain_list` | Administration domains |
 | `toggle_wlan` | Enable/disable WLAN (confirm gate) |
 
-## ICX Switch Tools (40)
+## ICX Switch Tools (42)
 
 | Tool | Description |
 |---|---|
@@ -98,6 +98,8 @@ List-returning tools now return a consistent envelope instead of a bare array:
 | `ruckus_device_ip_addresses` | IP addresses |
 | `ruckus_device_ip_routes` | IPv4 routing table |
 | `ruckus_device_ipv6_routes` | IPv6 routing table |
+| `ruckus_device_ip_route` | Add static IPv4 route (next-hop/null0/interface) (confirm gate) |
+| `ruckus_device_ip_route_delete` | Delete static IPv4 route (confirm gate) |
 | `ruckus_device_vlan_summary` | VLAN summary |
 | `ruckus_device_port_vlan` | VLAN per port |
 | `ruckus_device_mac_table_vlan` | MAC table by VLAN; `summary=True` for aggregate counts |

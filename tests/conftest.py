@@ -495,6 +495,29 @@ class MockRuckusDeviceDriver:
         return {"host": "203.0.113.1", "port": port, "action": action,
                 "success": True}
 
+    def add_static_route(
+        self, dest: str, mask: str, next_hop: str,
+        metric: int | None = None, distance: int | None = None,
+        name: str | None = None, tag: int | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        if dry_run:
+            return {"host": "203.0.113.1", "dest": dest, "mask": mask,
+                    "next_hop": next_hop, "dry_run": True,
+                    "commands": ["conf t", f"ip route {dest} {mask} {next_hop}", "end"]}
+        return {"host": "203.0.113.1", "dest": dest, "mask": mask,
+                "next_hop": next_hop, "added": True}
+
+    def delete_static_route(
+        self, dest: str, mask: str, next_hop: str, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        if dry_run:
+            return {"host": "203.0.113.1", "dest": dest, "mask": mask,
+                    "next_hop": next_hop, "dry_run": True,
+                    "commands": ["conf t", f"no ip route {dest} {mask} {next_hop}", "end"]}
+        return {"host": "203.0.113.1", "dest": dest, "mask": mask,
+                "next_hop": next_hop, "deleted": True}
+
 
 class MockICXDevice:
     def __init__(self, host: str = "", name: str = "", vendor: str = "ruckus",

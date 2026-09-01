@@ -1,10 +1,10 @@
-# Safety Gates — 12 destructive tools
+# Safety Gates — 14 destructive tools
 
 All destructive tools require `confirm=True` to execute. Without it, they return `{"error": "confirm_required"}` without making any changes.
 
 ## Dry-Run Preview
 
-All 4 ICX config tools support `dry_run=True` to preview commands without execution:
+All 6 ICX config tools support `dry_run=True` to preview commands without execution:
 
 ```python
 ruckus_device_port_state(host=..., port=..., enable=True, dry_run=True)
@@ -27,6 +27,8 @@ ruckus_device_port_state(host=..., port=..., enable=True, dry_run=True)
 | `ruckus_device_vlan_delete` | `confirm=True` | Delete VLAN(s) |
 | `ruckus_device_vlan_port` | `confirm=True` | Add/remove port VLAN membership |
 | `ruckus_device_poe_port` | `confirm=True` | Enable/disable PoE on port |
+| `ruckus_device_ip_route` | `confirm=True` | Add static IPv4 route |
+| `ruckus_device_ip_route_delete` | `confirm=True` | Delete static IPv4 route |
 
 ## Implementation
 

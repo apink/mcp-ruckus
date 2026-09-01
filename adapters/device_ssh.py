@@ -102,6 +102,65 @@ def _validate_route_dest_ipv6(dest: str) -> str:
     return dest
 
 
+def _validate_netmask(mask: str) -> str:
+    """Validate dotted-quad IPv4 netmask (e.g., 255.255.255.0)."""
+    if not IPV4_RE.match(mask):
+        raise ValueError(f"Invalid netmask format: {mask!r}")
+    if any(not (0 <= int(p) <= 255) for p in mask.split(".")):
+        raise ValueError(f"Invalid netmask octet range: {mask!r}")
+    return mask
+
+
+def _validate_route_metric(metric: int) -> int:
+    """Validate static route metric (cost, 1-16)."""
+    if not isinstance(metric, int) or not (1 <= metric <= 16):
+        raise ValueError(f"Invalid route metric (1-16): {metric!r}")
+    return metric
+
+
+def _validate_route_distance(distance: int) -> int:
+    """Validate static route administrative distance (1-255)."""
+    if not isinstance(distance, int) or not (1 <= distance <= 255):
+        raise ValueError(f"Invalid route distance (1-255): {distance!r}")
+    return distance
+
+
+def _validate_route_name(name: str) -> str:
+    """Validate static route name (alphanumeric, 1-32 chars)."""
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,32}", name):
+        raise ValueError(f"Invalid route name (1-32 alphanumeric/_/./-): {name!r}")
+    return name
+
+
+def _validate_route_tag(tag: int) -> int:
+    """Validate static route tag (0-4294967295)."""
+    if not isinstance(tag, int) or not (0 <= tag <= 4294967295):
+        raise ValueError(f"Invalid route tag (0-4294967295): {tag!r}")
+    return tag
+
+
+def _normalize_next_hop(next_hop: str) -> str:
+    """Normalize a static route next-hop token (IP, null0, or interface)."""
+    nh = (next_hop or "").strip()
+    if not nh:
+        raise ValueError("Empty next hop")
+    if nh == "null0":
+        return nh
+    if nh.startswith("ethernet "):
+        return f"ethernet {_validate_port(nh.split(None, 1)[1])}"
+    if nh.startswith("lag "):
+        raw = nh.split(None, 1)[1]
+        if not raw.isdigit() or not (1 <= int(raw) <= 255):
+            raise ValueError(f"Invalid LAG id (1-255): {next_hop!r}")
+        return f"lag {raw}"
+    if nh.startswith("ve "):
+        raw = nh.split(None, 1)[1]
+        if not raw.isdigit() or not (1 <= int(raw) <= 4096):
+            raise ValueError(f"Invalid VE id (1-4096): {next_hop!r}")
+        return f"ve {raw}"
+    return _validate_ipv4(nh)
+
+
 def _parse_vlan_spec(vlan_spec: str) -> list[int]:
     """Parse VLAN spec to list of VLAN IDs.
 
@@ -1809,6 +1868,91 @@ class RuckusDeviceDriver:
             return {"host": self.host, "port": port, "error": str(exc)}
         except Exception as exc:
             return {"host": self.host, "port": port, "error": str(exc)}
+
+    # ── Static Route Tools ────────────────────────────────────────
+
+    def add_static_route(
+        self,
+        dest: str,
+        mask: str,
+        next_hop: str,
+        metric: int | None = None,
+        distance: int | None = None,
+        name: str | None = None,
+        tag: int | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Add an IPv4 static route (ip route <dest> <mask> <next-hop>)."""
+        _validate_ipv4(dest)
+        _validate_netmask(mask)
+        next_hop_cmd = _normalize_next_hop(next_hop)
+
+        cmd = f"ip route {dest} {mask} {next_hop_cmd}"
+        if metric is not None:
+            cmd += f" {_validate_route_metric(metric)}"
+        if distance is not None:
+            cmd += f" distance {_validate_route_distance(distance)}"
+        if name is not None:
+            cmd += f" name {_validate_route_name(name)}"
+        if tag is not None:
+            cmd += f" tag {_validate_route_tag(tag)}"
+
+        commands = ["configure terminal", cmd, "end"]
+        if dry_run:
+            return {"host": self.host, "dest": dest, "mask": mask,
+                    "next_hop": next_hop_cmd, "dry_run": True, "commands": commands}
+
+        logger.info(
+            "add_static_route: host=%s dest=%s/%s next_hop=%s",
+            self.host, dest, mask, next_hop_cmd,
+        )
+        try:
+            with self._connect() as conn:
+                for cmd in commands:
+                    conn.send_command_timing(
+                        cmd, delay_factor=2, read_timeout=10,
+                    )
+            return {"host": self.host, "dest": dest, "mask": mask,
+                    "next_hop": next_hop_cmd, "added": True}
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "dest": dest, "mask": mask, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "dest": dest, "mask": mask, "error": str(exc)}
+
+    def delete_static_route(
+        self,
+        dest: str,
+        mask: str,
+        next_hop: str,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Delete an IPv4 static route (no ip route <dest> <mask> <next-hop>)."""
+        _validate_ipv4(dest)
+        _validate_netmask(mask)
+        next_hop_cmd = _normalize_next_hop(next_hop)
+
+        cmd = f"no ip route {dest} {mask} {next_hop_cmd}"
+        commands = ["configure terminal", cmd, "end"]
+        if dry_run:
+            return {"host": self.host, "dest": dest, "mask": mask,
+                    "next_hop": next_hop_cmd, "dry_run": True, "commands": commands}
+
+        logger.info(
+            "delete_static_route: host=%s dest=%s/%s next_hop=%s",
+            self.host, dest, mask, next_hop_cmd,
+        )
+        try:
+            with self._connect() as conn:
+                for cmd in commands:
+                    conn.send_command_timing(
+                        cmd, delay_factor=2, read_timeout=10,
+                    )
+            return {"host": self.host, "dest": dest, "mask": mask,
+                    "next_hop": next_hop_cmd, "deleted": True}
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "dest": dest, "mask": mask, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "dest": dest, "mask": mask, "error": str(exc)}
 
     def get_poe_status(
         self, port: str | None = None,
