@@ -76,11 +76,11 @@ async def _ssid_detail(wlan_id: str, zone_id: str) -> dict[str, Any]:
     }
 
 
-async def _radius_list(zone_id: str, for_accounting: str = "all") -> list[dict[str, Any]]:
+async def _radius_list(zone_id: str, for_accounting: str = "all") -> dict[str, Any]:
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
-        return [{"error": result["error"], "detail": result.get("detail", "")}]
+        return {"error": result["error"], "detail": result.get("detail", "")}
     fa: bool | None = None
     if for_accounting == "auth_only":
         fa = False
@@ -111,7 +111,7 @@ async def _radius_list(zone_id: str, for_accounting: str = "all") -> list[dict[s
             "secondary_ip": secondary_ip or None,
             "secondary_port": secondary_port or None,
         })
-    return out
+    return list_result(out, hint="see ssid_list for WLANs")
 
 
 async def _create_wlan(
@@ -304,7 +304,7 @@ def register_tools(mcp: FastMCP) -> None:
         return await _ssid_detail(wlan_id, zone_id)
 
     @mcp.tool()
-    async def radius_list(zone_id: str, for_accounting: str = "all") -> list[dict[str, Any]]:
+    async def radius_list(zone_id: str, for_accounting: str = "all") -> dict[str, Any]:
         """List RADIUS servers in a zone. Use to find valid auth profiles for 802.1X WLAN creation.
 
         Args:

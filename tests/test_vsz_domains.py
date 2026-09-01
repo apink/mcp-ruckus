@@ -11,12 +11,12 @@ pytestmark = pytest.mark.asyncio
 class TestDomainList:
     async def test_returns_domains(self):
         result = await _domain_list()
-        assert isinstance(result, list)
-        assert len(result) == 1
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 1
 
     async def test_domain_fields(self):
         result = await _domain_list()
-        domain = result[0]
+        domain = result["items"][0]
         assert domain["id"] == "domain-001"
         assert domain["name"] == "Default Domain"
         assert "description" in domain

@@ -124,20 +124,20 @@ def _device_mac_table_vlan(host: str, vlan_id: int, summary: bool = False) -> di
     return list_result(entries, hint="see ruckus_device_find_mac to locate a MAC")
 
 
-def _device_find_mac(host: str, mac: str) -> list[dict[str, Any]]:
+def _device_find_mac(host: str, mac: str) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.find_mac(mac)
+    return list_result(driver.find_mac(mac), hint="see ruckus_device_mac_table_vlan for full MAC table")
 
 
-def _device_lag_summary(host: str) -> list[dict[str, Any]]:
+def _device_lag_summary(host: str) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_lag_summary()
+    return list_result(driver.get_lag_summary(), hint="see ruckus_device_interfaces_summary for member ports")
 
 
 def _device_chassis_health(host: str) -> dict[str, Any]:
@@ -173,20 +173,20 @@ def _device_ping_ipv6(host: str, ip: str) -> dict[str, Any]:
     return driver.device_ping_ipv6(ip)
 
 
-def _device_traceroute(host: str, ip: str, source_ip: str | None = None, max_ttl: int = 30) -> list[dict[str, Any]]:
+def _device_traceroute(host: str, ip: str, source_ip: str | None = None, max_ttl: int = 30) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "target_ip": ip, "error": "device_not_found"}]
+        return {"host": host, "target_ip": ip, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.device_traceroute(ip, source_ip, max_ttl)
+    return list_result(driver.device_traceroute(ip, source_ip, max_ttl), hint="see ruckus_device_ping for reachability")
 
 
-def _device_traceroute_ipv6(host: str, ip: str, max_ttl: int = 30) -> list[dict[str, Any]]:
+def _device_traceroute_ipv6(host: str, ip: str, max_ttl: int = 30) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "target_ip": ip, "error": "device_not_found"}]
+        return {"host": host, "target_ip": ip, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.device_traceroute_ipv6(ip, max_ttl)
+    return list_result(driver.device_traceroute_ipv6(ip, max_ttl), hint="see ruckus_device_ping_ipv6 for reachability")
 
 
 def _device_config_backup(host: str, config_type: str = "running", include_config: bool = False) -> dict[str, Any]:
@@ -307,13 +307,13 @@ def _device_resources(host: str) -> dict[str, Any]:
     return driver.get_device_resources()
 
 
-def _device_sfp_info(host: str, port: str | None = None) -> list[dict[str, Any]]:
+def _device_sfp_info(host: str, port: str | None = None) -> dict[str, Any]:
     logger.info("device_sfp_info: host=%s port=%s", host, port)
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_sfp_info(port)
+    return list_result(driver.get_sfp_info(port), hint="see ruckus_device_optic_info for DOM readings")
 
 
 def _device_cable_diag(host: str, port: str) -> dict[str, Any]:
@@ -370,13 +370,13 @@ def _device_access_lists(host: str, name: str | None = None, brief: bool = False
     return driver.get_access_lists(name, brief)
 
 
-def _device_users(host: str) -> list[dict[str, Any]]:
+def _device_users(host: str) -> dict[str, Any]:
     logger.info("device_users: host=%s", host)
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_users()
+    return list_result(driver.get_users(), hint="see ruckus_device_ssh_status for active sessions")
 
 
 def _device_ssh_status(host: str) -> dict[str, Any]:
@@ -547,12 +547,12 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_mac_table_vlan(host, vlan_id, summary=summary)
 
     @mcp.tool()
-    def ruckus_device_find_mac(host: str, mac: str) -> list[dict[str, Any]]:
+    def ruckus_device_find_mac(host: str, mac: str) -> dict[str, Any]:
         """Find which port a specific MAC address is connected to."""
         return _device_find_mac(host, mac)
 
     @mcp.tool()
-    def ruckus_device_lag_summary(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_lag_summary(host: str) -> dict[str, Any]:
         """Get LAG (Link Aggregation Group) summary for a specific ICX switch."""
         return _device_lag_summary(host)
 
@@ -579,13 +579,13 @@ def register_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     def ruckus_device_traceroute(
         host: str, ip: str, source_ip: str | None = None, max_ttl: int = 30
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """Traceroute (IPv4) from device with optional source IP."""
         return _device_traceroute(host, ip, source_ip, max_ttl)
 
     @mcp.tool()
     def ruckus_device_traceroute_ipv6(host: str, ip: str, max_ttl: int = 30
-                                      ) -> list[dict[str, Any]]:
+                                      ) -> dict[str, Any]:
         """Traceroute IPv6 from ICX switch."""
         return _device_traceroute_ipv6(host, ip, max_ttl)
 
@@ -629,7 +629,7 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_resources(host)
 
     @mcp.tool()
-    def ruckus_device_sfp_info(host: str, port: str | None = None) -> list[dict[str, Any]]:
+    def ruckus_device_sfp_info(host: str, port: str | None = None) -> dict[str, Any]:
         """Get SFP/transceiver info for an ICX switch — port type, vendor, serial. Optional port filter."""
         return _device_sfp_info(host, port)
 
@@ -668,7 +668,7 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_access_lists(host, name, brief)
 
     @mcp.tool()
-    def ruckus_device_users(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_users(host: str) -> dict[str, Any]:
         """List local user accounts on an ICX switch — username, privilege, status, expire time."""
         return _device_users(host)
 

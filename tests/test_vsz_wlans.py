@@ -47,14 +47,14 @@ class TestSsidDetail:
 class TestRadiusList:
     async def test_auth_only(self):
         result = await _radius_list("zone-001", for_accounting="auth_only")
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert result[0]["name"] == "RADIUS"
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 1
+        assert result["items"][0]["name"] == "RADIUS"
 
     async def test_all(self):
         result = await _radius_list("zone-001")
-        assert isinstance(result, list)
-        assert len(result) >= 1
+        assert isinstance(result, dict)
+        assert len(result["items"]) >= 1
 
 
 class TestCreateWlan:

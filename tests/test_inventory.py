@@ -7,12 +7,12 @@ from tools.inventory import all_device_info, all_device_status, devices_by_locat
 class TestListDevices:
     def test_returns_devices(self):
         result = list_devices()
-        assert len(result) == 2
-        assert result[0]["host"] == "203.0.113.1"
+        assert len(result["items"]) == 2
+        assert result["items"][0]["host"] == "203.0.113.1"
 
     def test_device_fields(self):
         result = list_devices()
-        dev = result[0]
+        dev = result["items"][0]
         assert "host" in dev
         assert "name" in dev
         assert "vendor" in dev
@@ -22,33 +22,33 @@ class TestListDevices:
 class TestAllDeviceInfo:
     def test_returns_all(self):
         result = all_device_info()
-        assert len(result) == 2
-        assert result[0]["host"] == "203.0.113.1"
+        assert len(result["items"]) == 2
+        assert result["items"][0]["host"] == "203.0.113.1"
 
 
 class TestAllDeviceStatus:
     def test_returns_all(self):
         result = all_device_status()
-        assert len(result) == 2
+        assert len(result["items"]) == 2
 
 
 class TestDevicesByLocation:
     def test_matching_location(self):
         result = devices_by_location("building a south")
-        assert len(result) == 2
+        assert len(result["items"]) == 2
 
     def test_no_match(self):
         result = devices_by_location("unknown")
-        assert len(result) == 0
+        assert len(result["items"]) == 0
 
 
 class TestDevicesByRole:
     def test_distribution(self):
         result = devices_by_role("distribution")
-        assert len(result) == 1
-        assert result[0]["host"] == "203.0.113.1"
+        assert len(result["items"]) == 1
+        assert result["items"][0]["host"] == "203.0.113.1"
 
     def test_access(self):
         result = devices_by_role("access")
-        assert len(result) == 1
-        assert result[0]["host"] == "203.0.113.3"
+        assert len(result["items"]) == 1
+        assert result["items"][0]["host"] == "203.0.113.3"

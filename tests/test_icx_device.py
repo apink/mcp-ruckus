@@ -147,15 +147,15 @@ class TestMacTableVlan:
 class TestFindMac:
     def test_returns_port(self):
         result = _device_find_mac("203.0.113.1", "cc:dd:ee:11:22:01")
-        assert len(result) == 1
-        assert result[0]["port"] == "1/2/1"
+        assert len(result["items"]) == 1
+        assert result["items"][0]["port"] == "1/2/1"
 
 
 class TestLagSummary:
     def test_returns_list(self):
         result = _device_lag_summary("203.0.113.1")
-        assert len(result) == 1
-        assert result[0]["status"] == "up"
+        assert len(result["items"]) == 1
+        assert result["items"][0]["status"] == "up"
 
 
 class TestChassisHealth:
@@ -190,16 +190,16 @@ class TestDevicePing:
 class TestDeviceTraceroute:
     def test_traceroute_v4(self):
         result = _device_traceroute("203.0.113.1", "8.8.8.8")
-        assert len(result) == 2
-        assert result[0]["hop"] == 1
+        assert len(result["items"]) == 2
+        assert result["items"][0]["hop"] == 1
 
     def test_traceroute_v4_with_source(self):
         result = _device_traceroute("203.0.113.1", "8.8.8.8", source_ip="203.0.113.1")
-        assert len(result) == 2
+        assert len(result["items"]) == 2
 
     def test_traceroute_v6(self):
         result = _device_traceroute_ipv6("203.0.113.1", "2001:4860:4860::8888")
-        assert len(result) == 1
+        assert len(result["items"]) == 1
 
 
 class TestConfigBackup:
@@ -297,13 +297,13 @@ class TestDeviceResources:
 class TestSfpInfo:
     def test_unknown_device(self):
         result = _device_sfp_info("192.168.99.99")
-        assert result[0]["error"] == "device_not_found"
+        assert result["error"] == "device_not_found"
 
     def test_valid_device(self):
         result = _device_sfp_info("203.0.113.1")
-        assert isinstance(result, list)
-        assert len(result) == 2
-        assert result[0]["port"] == "1/2/1"
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 2
+        assert result["items"][0]["port"] == "1/2/1"
 
 
 class TestCableDiag:
@@ -399,20 +399,20 @@ class TestAccessLists:
 class TestUsers:
     def test_unknown_device(self):
         result = _device_users("192.168.99.99")
-        assert result[0]["error"] == "device_not_found"
+        assert result["error"] == "device_not_found"
 
     def test_valid_device(self):
         result = _device_users("203.0.113.1")
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert result[0]["username"] == "admin"
-        assert result[0]["status"] == "enabled"
-        assert "password" not in result[0]
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 1
+        assert result["items"][0]["username"] == "admin"
+        assert result["items"][0]["status"] == "enabled"
+        assert "password" not in result["items"][0]
 
     def test_password_hash_not_exposed(self):
         result = _device_users("203.0.113.1")
-        assert all("password" not in u for u in result)
-        assert all("$1$" not in str(u) for u in result)
+        assert all("password" not in u for u in result["items"])
+        assert all("$1$" not in str(u) for u in result["items"])
 
 
 class TestSshStatus:
