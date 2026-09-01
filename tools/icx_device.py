@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 
 from adapters.device_ssh import RuckusDeviceDriver
 from inventory.manager import get_device_record
+from tools._response import list_result
 
 logger = logging.getLogger(__name__)
 
@@ -36,44 +37,44 @@ def _device_status(host: str) -> dict[str, Any]:
     return driver.get_device_status()
 
 
-def _device_interfaces_summary(host: str) -> list[dict[str, Any]]:
+def _device_interfaces_summary(host: str) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_interfaces_summary()
+    return list_result(driver.get_interfaces_summary())
 
 
-def _device_interfaces_down(host: str) -> list[dict[str, Any]]:
+def _device_interfaces_down(host: str) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_interfaces_down()
+    return list_result(driver.get_interfaces_down())
 
 
-def _device_interfaces_errors(host: str) -> list[dict[str, Any]]:
+def _device_interfaces_errors(host: str) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_interfaces_errors()
+    return list_result(driver.get_interfaces_errors())
 
 
-def _device_interfaces_stats(host: str) -> list[dict[str, Any]]:
+def _device_interfaces_stats(host: str) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_interfaces_stats()
+    return list_result(driver.get_interfaces_stats())
 
 
-def _device_ip_addresses(host: str) -> list[dict[str, Any]]:
+def _device_ip_addresses(host: str) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_ip_addresses()
+    return list_result(driver.get_ip_addresses())
 
 
 def _device_ip_routes(host: str, destination: str | None = None) -> dict[str, Any]:
@@ -108,12 +109,12 @@ def _device_port_vlan(host: str, port: str) -> dict[str, Any]:
     return driver.get_port_vlan(port)
 
 
-def _device_mac_table_vlan(host: str, vlan_id: int) -> list[dict[str, Any]]:
+def _device_mac_table_vlan(host: str, vlan_id: int) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_mac_table_vlan(vlan_id)
+    return list_result(driver.get_mac_table_vlan(vlan_id))
 
 
 def _device_find_mac(host: str, mac: str) -> list[dict[str, Any]]:
@@ -140,12 +141,12 @@ def _device_chassis_health(host: str) -> dict[str, Any]:
     return driver.get_chassis_health()
 
 
-def _device_ipv6_interfaces(host: str) -> list[dict[str, Any]]:
+def _device_ipv6_interfaces(host: str) -> dict[str, Any]:
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_ipv6_interfaces()
+    return list_result(driver.get_ipv6_interfaces())
 
 
 def _device_ping(host: str, ip: str, source: str | None = None) -> dict[str, Any]:
@@ -253,13 +254,13 @@ def _device_config_diff(host: str, config_type: str = "running") -> dict[str, An
     }
 
 
-def _device_lldp_neighbors(host: str) -> list[dict[str, Any]]:
+def _device_lldp_neighbors(host: str) -> dict[str, Any]:
     logger.info("device_lldp_neighbors: host=%s", host)
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_lldp_neighbors()
+    return list_result(driver.get_lldp_neighbors())
 
 
 def _device_poe_status(host: str) -> dict[str, Any]:
@@ -271,13 +272,13 @@ def _device_poe_status(host: str) -> dict[str, Any]:
     return driver.get_poe_status()
 
 
-def _device_arp_table(host: str) -> list[dict[str, Any]]:
+def _device_arp_table(host: str) -> dict[str, Any]:
     logger.info("device_arp_table: host=%s", host)
     device = get_device_record(host)
     if not device:
-        return [{"host": host, "error": "device_not_found"}]
+        return {"host": host, "error": "device_not_found"}
     driver = RuckusDeviceDriver(device)
-    return driver.get_arp_table()
+    return list_result(driver.get_arp_table())
 
 
 def _device_resources(host: str) -> dict[str, Any]:
@@ -475,27 +476,27 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_status(host)
 
     @mcp.tool()
-    def ruckus_device_interfaces_summary(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_interfaces_summary(host: str) -> dict[str, Any]:
         """Get interface summary for a specific ICX switch."""
         return _device_interfaces_summary(host)
 
     @mcp.tool()
-    def ruckus_device_interfaces_down(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_interfaces_down(host: str) -> dict[str, Any]:
         """Get down interfaces for a specific ICX switch."""
         return _device_interfaces_down(host)
 
     @mcp.tool()
-    def ruckus_device_interfaces_errors(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_interfaces_errors(host: str) -> dict[str, Any]:
         """Get interfaces with errors for a specific ICX switch."""
         return _device_interfaces_errors(host)
 
     @mcp.tool()
-    def ruckus_device_interfaces_stats(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_interfaces_stats(host: str) -> dict[str, Any]:
         """Get interface utilization and traffic statistics for a specific ICX switch."""
         return _device_interfaces_stats(host)
 
     @mcp.tool()
-    def ruckus_device_ip_addresses(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_ip_addresses(host: str) -> dict[str, Any]:
         """Get IP address bindings for a specific ICX switch."""
         return _device_ip_addresses(host)
 
@@ -520,7 +521,7 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_port_vlan(host, port)
 
     @mcp.tool()
-    def ruckus_device_mac_table_vlan(host: str, vlan_id: int) -> list[dict[str, Any]]:
+    def ruckus_device_mac_table_vlan(host: str, vlan_id: int) -> dict[str, Any]:
         """Get MAC address table for a specific VLAN on an ICX switch."""
         return _device_mac_table_vlan(host, vlan_id)
 
@@ -540,7 +541,7 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_chassis_health(host)
 
     @mcp.tool()
-    def ruckus_device_ipv6_interfaces(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_ipv6_interfaces(host: str) -> dict[str, Any]:
         """Get IPv6 interface addresses for a specific ICX switch."""
         return _device_ipv6_interfaces(host)
 
@@ -588,12 +589,12 @@ def register_tools(mcp: FastMCP) -> None:
         return _device_config_diff(host, config_type=config_type)
 
     @mcp.tool()
-    def ruckus_device_lldp_neighbors(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_lldp_neighbors(host: str) -> dict[str, Any]:
         """Get LLDP neighbors for an ICX switch — remote device, port, description per local interface."""
         return _device_lldp_neighbors(host)
 
     @mcp.tool()
-    def ruckus_device_arp_table(host: str) -> list[dict[str, Any]]:
+    def ruckus_device_arp_table(host: str) -> dict[str, Any]:
         """Get ARP table for an ICX switch — IP-to-MAC-to-port mapping for L2/L3 troubleshooting."""
         return _device_arp_table(host)
 

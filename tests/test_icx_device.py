@@ -67,35 +67,35 @@ class TestDeviceStatus:
 class TestInterfacesSummary:
     def test_returns_list(self):
         result = _device_interfaces_summary("203.0.113.1")
-        assert isinstance(result, list)
-        assert len(result) == 3
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 3
 
 
 class TestInterfacesDown:
     def test_returns_down_only(self):
         result = _device_interfaces_down("203.0.113.1")
-        assert len(result) == 1
-        assert result[0]["port"] == "1/1/2"
+        assert result["total"] == 1
+        assert result["items"][0]["port"] == "1/1/2"
 
 
 class TestInterfacesErrors:
     def test_returns_list(self):
         result = _device_interfaces_errors("203.0.113.1")
-        assert isinstance(result, list)
+        assert isinstance(result, dict)
 
 
 class TestInterfacesStats:
     def test_returns_stats(self):
         result = _device_interfaces_stats("203.0.113.1")
-        assert len(result) == 3
-        assert "util_pct" in result[0]
+        assert len(result["items"]) == 3
+        assert "util_pct" in result["items"][0]
 
 
 class TestIpAddresses:
     def test_returns_list(self):
         result = _device_ip_addresses("203.0.113.1")
-        assert len(result) == 1
-        assert result[0]["ip"] == "203.0.113.1"
+        assert len(result["items"]) == 1
+        assert result["items"][0]["ip"] == "203.0.113.1"
 
 
 class TestIpRoutes:
@@ -135,8 +135,8 @@ class TestPortVlan:
 class TestMacTableVlan:
     def test_returns_macs(self):
         result = _device_mac_table_vlan("203.0.113.1", 100)
-        assert len(result) == 1
-        assert result[0]["vlan"] == 100
+        assert len(result["items"]) == 1
+        assert result["items"][0]["vlan"] == 100
 
 
 class TestFindMac:
@@ -163,8 +163,8 @@ class TestChassisHealth:
 class TestIpv6Interfaces:
     def test_returns_interfaces(self):
         result = _device_ipv6_interfaces("203.0.113.1")
-        assert len(result) == 1
-        assert "2001:db8" in result[0]["ip"]
+        assert len(result["items"]) == 1
+        assert "2001:db8" in result["items"][0]["ip"]
 
 
 class TestDevicePing:
@@ -225,14 +225,15 @@ class TestConfigDiff:
 class TestLLdpNeighbors:
     def test_unknown_device(self):
         result = _device_lldp_neighbors("192.168.99.99")
-        assert result[0]["error"] == "device_not_found"
+        assert result["error"] == "device_not_found"
 
     def test_returns_list(self):
         result = _device_lldp_neighbors("203.0.113.1")
-        assert isinstance(result, list)
-        if result and "error" not in result[0]:
-            assert "local_port" in result[0]
-            assert "system_name" in result[0]
+        assert isinstance(result, dict)
+        items = result["items"]
+        if items and "error" not in items[0]:
+            assert "local_port" in items[0]
+            assert "system_name" in items[0]
 
 
 class TestPoeStatus:
@@ -260,13 +261,13 @@ class TestPoeStatus:
 class TestArpTable:
     def test_unknown_device(self):
         result = _device_arp_table("192.168.99.99")
-        assert result[0]["error"] == "device_not_found"
+        assert result["error"] == "device_not_found"
 
     def test_valid_device(self):
         result = _device_arp_table("203.0.113.1")
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert result[0]["ip"] == "203.0.113.81"
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 1
+        assert result["items"][0]["ip"] == "203.0.113.81"
 
 
 class TestDeviceResources:

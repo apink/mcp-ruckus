@@ -7,27 +7,29 @@ from typing import Any
 from fastmcp import FastMCP
 
 from adapters.vsz import VsZRestAdapter
+from tools._response import list_result
 
 logger = logging.getLogger(__name__)
 
 
-async def _ssid_list(zone_id: str) -> list[dict[str, Any]]:
+async def _ssid_list(zone_id: str) -> dict[str, Any]:
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
-        return [{"error": result["error"], "detail": result.get("detail", "")}]
+        return {"error": result["error"], "detail": result.get("detail", "")}
     wlans = await adapter.get_wlans_by_zone(zone_id)
-    return [
+    rows = [
         {"ssid": w.get("ssid", ""), "name": w.get("name", ""), "id": w.get("id", ""), "zone_id": w.get("zoneId", "")}
         for w in wlans
     ]
+    return list_result(rows)
 
 
-async def _ssid_list_all() -> list[dict[str, Any]]:
+async def _ssid_list_all() -> dict[str, Any]:
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
-        return [{"error": result["error"], "detail": result.get("detail", "")}]
+        return {"error": result["error"], "detail": result.get("detail", "")}
     zones = await adapter.get_zones()
     all_ssids = []
     for zone in zones:
@@ -43,7 +45,7 @@ async def _ssid_list_all() -> list[dict[str, Any]]:
                     "zone_id": zone_id,
                     "zone": zone_name,
                 })
-    return all_ssids
+    return list_result(all_ssids)
 
 
 async def _ssid_detail(wlan_id: str, zone_id: str) -> dict[str, Any]:
@@ -287,12 +289,12 @@ async def _modify_wlan(
 def register_tools(mcp: FastMCP) -> None:
     """Register vSZ WLAN management tools."""
     @mcp.tool()
-    async def ssid_list(zone_id: str) -> list[dict[str, Any]]:
+    async def ssid_list(zone_id: str) -> dict[str, Any]:
         """List all SSIDs (WLANs) in a specific zone."""
         return await _ssid_list(zone_id)
 
     @mcp.tool()
-    async def ssid_list_all() -> list[dict[str, Any]]:
+    async def ssid_list_all() -> dict[str, Any]:
         """List all SSIDs across all zones."""
         return await _ssid_list_all()
 

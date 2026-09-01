@@ -7,17 +7,18 @@ from typing import Any
 from fastmcp import FastMCP
 
 from adapters.vsz import VsZRestAdapter
+from tools._response import list_result
 
 logger = logging.getLogger(__name__)
 
 
-async def _zone_status() -> list[dict[str, Any]]:
+async def _zone_status() -> dict[str, Any]:
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
-        return [{"error": result["error"], "detail": result.get("detail", "")}]
+        return {"error": result["error"], "detail": result.get("detail", "")}
     zones = await adapter.get_zones()
-    return [
+    rows = [
         {
             "zone_id": z.get("id", ""),
             "name": z.get("name", ""),
@@ -28,15 +29,16 @@ async def _zone_status() -> list[dict[str, Any]]:
         }
         for z in zones
     ]
+    return list_result(rows)
 
 
-async def _zone_ap_list(zone_id: str) -> list[dict[str, Any]]:
+async def _zone_ap_list(zone_id: str) -> dict[str, Any]:
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
-        return [{"error": result["error"], "detail": result.get("detail", "")}]
+        return {"error": result["error"], "detail": result.get("detail", "")}
     aps = await adapter.get_aps_by_zone(zone_id)
-    return [
+    rows = [
         {
             "ap_name": ap.get("deviceName", ""),
             "status": ap.get("status", ""),
@@ -46,6 +48,7 @@ async def _zone_ap_list(zone_id: str) -> list[dict[str, Any]]:
         }
         for ap in aps
     ]
+    return list_result(rows)
 
 
 async def _license_status() -> dict[str, Any]:
@@ -70,12 +73,12 @@ async def _controller_stats() -> dict[str, Any]:
 def register_tools(mcp: FastMCP) -> None:
     """Register vSZ system/controller tools."""
     @mcp.tool()
-    async def zone_status() -> list[dict[str, Any]]:
+    async def zone_status() -> dict[str, Any]:
         """Get zone status from vSZ."""
         return await _zone_status()
 
     @mcp.tool()
-    async def zone_ap_list(zone_id: str) -> list[dict[str, Any]]:
+    async def zone_ap_list(zone_id: str) -> dict[str, Any]:
         """Get AP list for a specific zone."""
         return await _zone_ap_list(zone_id)
 

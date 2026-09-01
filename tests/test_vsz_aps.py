@@ -11,12 +11,13 @@ pytestmark = pytest.mark.asyncio
 class TestApStatus:
     async def test_all_aps(self):
         result = await _ap_status()
-        assert isinstance(result, list)
-        assert len(result) == 5
+        assert isinstance(result, dict)
+        assert result["total"] == 5
+        assert len(result["items"]) == 5
 
     async def test_has_required_fields(self):
         result = await _ap_status()
-        ap = result[0]
+        ap = result["items"][0]
         assert "ap_name" in ap
         assert "mac" in ap
         assert "model" in ap
@@ -27,23 +28,25 @@ class TestApStatus:
 
     async def test_online_aps_have_status_up(self):
         result = await _ap_status()
-        for ap in result:
+        for ap in result["items"]:
             if ap["ap_name"] != "AP-03-04":
                 assert ap["status"] == "up"
 
     async def test_disconnected_ap_has_raw_status(self):
         result = await _ap_status()
-        dc = [ap for ap in result if ap["ap_name"] == "AP-03-04"]
+        dc = [ap for ap in result["items"] if ap["ap_name"] == "AP-03-04"]
         assert len(dc) == 1
         assert dc[0]["status"] != "up"
 
     async def test_zone_filter(self):
         result = await _ap_status(zone_id="Campus")
-        assert len(result) == 5
+        assert len(result["items"]) == 5
 
     async def test_limit(self):
         result = await _ap_status(limit=2)
-        assert len(result) == 2
+        assert len(result["items"]) == 2
+        assert result["total"] == 5
+        assert result["truncated"] is True
 
 
 class TestApDetail:
@@ -62,28 +65,28 @@ class TestApDetail:
 class TestApDown:
     async def test_returns_list(self):
         result = await _ap_down()
-        assert isinstance(result, list)
-        assert len(result) == 1
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 1
 
     async def test_disconnected_ap_found(self):
         result = await _ap_down()
-        assert result[0]["ap_name"] == "AP-03-04"
+        assert result["items"][0]["ap_name"] == "AP-03-04"
 
 
 class TestApHighClientCount:
     async def test_default_threshold(self):
         result = await _ap_high_client_count()
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert result[0]["ap_name"] == "AP-03-05"
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 1
+        assert result["items"][0]["ap_name"] == "AP-03-05"
 
     async def test_low_threshold(self):
         result = await _ap_high_client_count(threshold=20)
-        assert len(result) >= 2
+        assert len(result["items"]) >= 2
 
     async def test_high_threshold(self):
         result = await _ap_high_client_count(threshold=100)
-        assert len(result) == 0
+        assert len(result["items"]) == 0
 
 
 class TestApNeighbors:

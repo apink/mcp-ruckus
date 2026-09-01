@@ -9,6 +9,7 @@ from typing import Any
 from fastmcp import FastMCP
 
 from adapters.vsz import VsZRestAdapter
+from tools._response import list_result
 
 logger = logging.getLogger(__name__)
 
@@ -133,14 +134,14 @@ async def _fetch_neighbors_batch(
     return results, errors
 
 
-async def _ap_status(zone_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+async def _ap_status(zone_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     logger.info("ap_status: zone=%s limit=%d", zone_id, limit)
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
-        return [{"error": result["error"], "detail": result.get("detail", "")}]
+        return {"error": result["error"], "detail": result.get("detail", "")}
     aps = await adapter.get_aps_by_zone(zone_id) if zone_id else await adapter.get_all_aps()
-    return [
+    rows = [
         {
             "ap_name": ap.get("deviceName", ""),
             "mac": ap.get("deviceMac", ""),
@@ -163,8 +164,9 @@ async def _ap_status(zone_id: str | None = None, limit: int = 100) -> list[dict[
             "noise_24g_dbm": ap.get("noise24G", 0),
             "noise_5g_dbm": ap.get("noise5G", 0),
         }
-        for ap in aps[:limit]
+        for ap in aps
     ]
+    return list_result(rows, limit, hint="use ap_detail(ap_name=...) for full record")
 
 
 async def _ap_detail(ap_name: str) -> dict[str, Any]:
@@ -351,13 +353,13 @@ async def _ap_neighbors(
     return resp
 
 
-async def _ap_down() -> list[dict[str, Any]]:
+async def _ap_down() -> dict[str, Any]:
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
-        return [{"error": result["error"], "detail": result.get("detail", "")}]
+        return {"error": result["error"], "detail": result.get("detail", "")}
     all_aps = await adapter.get_all_aps()
-    return [
+    rows = [
         {
             "ap_name": ap.get("deviceName", ""),
             "status": ap.get("status", ""),
@@ -367,19 +369,21 @@ async def _ap_down() -> list[dict[str, Any]]:
         for ap in all_aps
         if ap.get("status", "").lower() not in ("online", "up", "connected")
     ]
+    return list_result(rows)
 
 
-async def _ap_high_client_count(threshold: int = 50) -> list[dict[str, Any]]:
+async def _ap_high_client_count(threshold: int = 50) -> dict[str, Any]:
     adapter = VsZRestAdapter()
     result = await adapter.login()
     if "error" in result:
-        return [{"error": result["error"], "detail": result.get("detail", "")}]
+        return {"error": result["error"], "detail": result.get("detail", "")}
     all_aps = await adapter.get_all_aps()
-    return [
+    rows = [
         {"ap_name": ap.get("deviceName", ""), "clients": ap.get("numClients", 0), "zone": ap.get("zoneName", "")}
         for ap in all_aps
         if ap.get("numClients", 0) > threshold
     ]
+    return list_result(rows)
 
 
 async def _reboot_ap(ap_name: str, confirm: bool = False) -> dict[str, Any]:
@@ -409,8 +413,12 @@ async def _reboot_ap(ap_name: str, confirm: bool = False) -> dict[str, Any]:
 def register_tools(mcp: FastMCP) -> None:
     """Register vSZ AP tools."""
     @mcp.tool()
-    async def ap_status(zone_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
-        """Get AP status from vSZ. Optional zone filter and limit to control response size."""
+    async def ap_status(zone_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+        """Get AP status from vSZ. Optional zone filter and limit to control response size.
+
+        Returns {"items", "total", "returned", "truncated"}; set limit to page,
+        truncated=True means more APs available.
+        """
         return await _ap_status(zone_id=zone_id, limit=limit)
 
     @mcp.tool()
@@ -444,12 +452,12 @@ def register_tools(mcp: FastMCP) -> None:
         return await _ap_neighbors(ap_name=ap_name, zone_id=zone_id, include_detail=include_detail, max_aps=max_aps)
 
     @mcp.tool()
-    async def ap_down() -> list[dict[str, Any]]:
+    async def ap_down() -> dict[str, Any]:
         """Get all APs that are down."""
         return await _ap_down()
 
     @mcp.tool()
-    async def ap_high_client_count(threshold: int = 50) -> list[dict[str, Any]]:
+    async def ap_high_client_count(threshold: int = 50) -> dict[str, Any]:
         """Get APs with client count above threshold."""
         return await _ap_high_client_count(threshold)
 

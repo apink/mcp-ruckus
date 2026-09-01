@@ -11,12 +11,12 @@ pytestmark = pytest.mark.asyncio
 class TestSsidList:
     async def test_known_zone(self):
         result = await _ssid_list("zone-001")
-        assert isinstance(result, list)
-        assert len(result) == 3
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 3
 
     async def test_has_required_fields(self):
         result = await _ssid_list("zone-001")
-        wlan = result[0]
+        wlan = result["items"][0]
         assert "ssid" in wlan
         assert "name" in wlan
         assert "id" in wlan
@@ -26,12 +26,12 @@ class TestSsidList:
 class TestSsidListAll:
     async def test_returns_list(self):
         result = await _ssid_list_all()
-        assert isinstance(result, list)
-        assert len(result) == 3
+        assert isinstance(result, dict)
+        assert len(result["items"]) == 3
 
     async def test_has_zone_info(self):
         result = await _ssid_list_all()
-        for w in result:
+        for w in result["items"]:
             assert "zone" in w
 
 
