@@ -1,10 +1,10 @@
-# Safety Gates — 14 destructive tools
+# Safety Gates — 17 destructive tools
 
 All destructive tools require `confirm=True` to execute. Without it, they return `{"error": "confirm_required"}` without making any changes.
 
 ## Dry-Run Preview
 
-All 6 ICX config tools support `dry_run=True` to preview commands without execution:
+All 10 ICX config tools support `dry_run=True` to preview commands without execution:
 
 ```python
 ruckus_device_port_state(host=..., port=..., enable=True, dry_run=True)
@@ -29,6 +29,9 @@ ruckus_device_port_state(host=..., port=..., enable=True, dry_run=True)
 | `ruckus_device_poe_port` | `confirm=True` | Enable/disable PoE on port |
 | `ruckus_device_ip_route` | `confirm=True` | Add static IPv4 route |
 | `ruckus_device_ip_route_delete` | `confirm=True` | Delete static IPv4 route |
+| `ruckus_device_ipv6_route` | `confirm=True` | Add static IPv6 route |
+| `ruckus_device_ipv6_route_delete` | `confirm=True` | Delete static IPv6 route |
+| `ruckus_device_ipv6_unicast_routing` | `confirm=True` | Enable/disable `ipv6 unicast-routing` |
 
 ## Implementation
 

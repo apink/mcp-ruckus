@@ -1,9 +1,9 @@
 ---
 name: ruckus-mcp
-description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 82 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
+description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 85 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
 ---
 
-# Ruckus MCP Skill — 82 tools
+# Ruckus MCP Skill — 85 tools
 
 ## How to Install This Skill
 
@@ -61,7 +61,7 @@ Connectivity (3): ping_device, check_port, http_latency
 
 ## Critical Rules
 
-- **14 destructive tools require `confirm=True`**: `apply_rf_recommendation`, `apply_ap_config`, `create_wlan`, `modify_wlan`, `reboot_ap`, `disconnect_client`, `toggle_wlan`, `ruckus_device_port_state`, `ruckus_device_vlan_create`, `ruckus_device_vlan_delete`, `ruckus_device_vlan_port`, `ruckus_device_poe_port`, `ruckus_device_ip_route`, `ruckus_device_ip_route_delete`
+- **17 destructive tools require `confirm=True`**: `apply_rf_recommendation`, `apply_ap_config`, `create_wlan`, `modify_wlan`, `reboot_ap`, `disconnect_client`, `toggle_wlan`, `ruckus_device_port_state`, `ruckus_device_vlan_create`, `ruckus_device_vlan_delete`, `ruckus_device_vlan_port`, `ruckus_device_poe_port`, `ruckus_device_ip_route`, `ruckus_device_ip_route_delete`, `ruckus_device_ipv6_route`, `ruckus_device_ipv6_route_delete`, `ruckus_device_ipv6_unicast_routing`
 - **Pick host by IP, not name** — names are not unique in `devices.yaml`
 - **Error return format**: `{"error": "...", "detail": "..."}` — not exceptions
 - **vSZ session TTL**: 10 minutes, auto re-login

@@ -514,6 +514,52 @@ def _device_ip_route_delete(
     return driver.delete_static_route(dest, mask, next_hop, dry_run=dry_run)
 
 
+def _device_ipv6_route(
+    host: str, dest: str, next_hop: str,
+    metric: int | None = None, distance: int | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_ipv6_route: host=%s dest=%s next_hop=%s dry_run=%s",
+        host, dest, next_hop, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "dest": dest, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.add_static_route_ipv6(
+        dest, next_hop, metric=metric, distance=distance, dry_run=dry_run,
+    )
+
+
+def _device_ipv6_route_delete(
+    host: str, dest: str, next_hop: str, dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_ipv6_route_delete: host=%s dest=%s next_hop=%s dry_run=%s",
+        host, dest, next_hop, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "dest": dest, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.delete_static_route_ipv6(dest, next_hop, dry_run=dry_run)
+
+
+def _device_ipv6_unicast_routing(
+    host: str, enable: bool = True, dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_ipv6_unicast_routing: host=%s enable=%s dry_run=%s",
+        host, enable, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.set_ipv6_unicast_routing(enable=enable, dry_run=dry_run)
+
+
 def register_tools(mcp: FastMCP) -> None:
     """Register ICX device tools (ruckus_ prefix)."""
     @mcp.tool()
@@ -974,3 +1020,94 @@ def register_tools(mcp: FastMCP) -> None:
                 "detail": "Set confirm=True to delete static route",
             }
         return _device_ip_route_delete(host, dest, mask, next_hop)
+
+    @mcp.tool()
+    def ruckus_device_ipv6_route(
+        host: str,
+        dest: str,
+        next_hop: str,
+        metric: int | None = None,
+        distance: int | None = None,
+        confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Add a static IPv6 route to an ICX switch.
+
+        next_hop may be an IPv6 next-hop address, 'null0' (blackhole/drop),
+        or an outgoing interface ('ethernet 1/1/1', 'lag 1', 've 10', 'tunnel 1').
+
+        Args:
+            host: Device host from inventory.
+            dest: Destination IPv6 prefix (e.g. '2001:db8::/32').
+            next_hop: Next hop — IPv6 address, 'null0', 'ethernet <port>',
+                      'lag <id>', 've <id>', or 'tunnel <id>'.
+            metric: Optional cost metric (1-16, default 1).
+            distance: Optional administrative distance (1-255).
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_ipv6_route(
+                host, dest, next_hop, metric=metric, distance=distance, dry_run=True,
+            )
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to add IPv6 static route",
+            }
+        return _device_ipv6_route(host, dest, next_hop, metric=metric, distance=distance)
+
+    @mcp.tool()
+    def ruckus_device_ipv6_route_delete(
+        host: str,
+        dest: str,
+        next_hop: str,
+        confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Delete a static IPv6 route from an ICX switch.
+
+        Args:
+            host: Device host from inventory.
+            dest: Destination IPv6 prefix (e.g. '2001:db8::/32').
+            next_hop: Next hop to remove — same form used when adding
+                      (IPv6 address, 'null0', 'ethernet <port>', 'lag <id>',
+                      've <id>', or 'tunnel <id>').
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_ipv6_route_delete(host, dest, next_hop, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to delete IPv6 static route",
+            }
+        return _device_ipv6_route_delete(host, dest, next_hop)
+
+    @mcp.tool()
+    def ruckus_device_ipv6_unicast_routing(
+        host: str,
+        enable: bool = True,
+        confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Enable or disable IPv6 unicast routing globally on an ICX switch.
+
+        IPv6 static routes require 'ipv6 unicast-routing' to be enabled first.
+
+        Args:
+            host: Device host from inventory.
+            enable: True to run 'ipv6 unicast-routing', False to run
+                    'no ipv6 unicast-routing'.
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_ipv6_unicast_routing(host, enable=enable, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to change IPv6 unicast routing",
+            }
+        return _device_ipv6_unicast_routing(host, enable=enable)

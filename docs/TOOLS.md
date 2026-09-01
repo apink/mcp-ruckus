@@ -1,6 +1,6 @@
 # Tool Reference — MCP Ruckus
 
-Total **82 tools** (31 vSZ + 42 ICX + 6 inventory + 3 connectivity).
+Total **85 tools** (31 vSZ + 45 ICX + 6 inventory + 3 connectivity).
 
 ## Response envelope
 
@@ -100,6 +100,9 @@ List-returning tools now return a consistent envelope instead of a bare array:
 | `ruckus_device_ipv6_routes` | IPv6 routing table |
 | `ruckus_device_ip_route` | Add static IPv4 route (next-hop/null0/interface) (confirm gate) |
 | `ruckus_device_ip_route_delete` | Delete static IPv4 route (confirm gate) |
+| `ruckus_device_ipv6_route` | Add static IPv6 route (next-hop/null0/interface) (confirm gate) |
+| `ruckus_device_ipv6_route_delete` | Delete static IPv6 route (confirm gate) |
+| `ruckus_device_ipv6_unicast_routing` | Enable/disable `ipv6 unicast-routing` (confirm gate) |
 | `ruckus_device_vlan_summary` | VLAN summary |
 | `ruckus_device_port_vlan` | VLAN per port |
 | `ruckus_device_mac_table_vlan` | MAC table by VLAN; `summary=True` for aggregate counts |

@@ -7,7 +7,10 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-01 | IPv6 unicast routing + CLI errors | `ruckus_device_ipv6_unicast_routing` tool + detect rejected config commands (no more false `added: true`) |
+| 2026-09-01 | Log noise reduction | Suppress per-request MCP/SSH/access INFO logs; `LOG_LEVEL=DEBUG` restores them |
 | 2026-09-01 | Static IPv4 route | `ruckus_device_ip_route` + `_delete` — add/delete static IPv4 route (next-hop/null0/interface) with `confirm` + `dry_run` |
+| 2026-09-01 | Static IPv6 route | `ruckus_device_ipv6_route` + `_delete` — add/delete static IPv6 route (next-hop/null0/interface) with `confirm` + `dry_run` |
 | 2026-09-01 | Context-size optimization | All 30 list tools return `{items, total, returned, truncated, hint}` envelope + `MCP_MAX_ITEMS` hard cap + `summary=True` on 3 heaviest tools |
 | 2026-08-22 | Doc/env sync | Tool count corrected to **80** (ICX 40) & tests to **231**; fix broken venv, `pytest-asyncio` dep, editable install, project URL |
 | 2026-08-12 | PoE per-port status + params | `ruckus_device_poe_status` (read-only, per-port filter) + `ruckus_device_poe_port` added `priority`/`power_limit`/`power_by_class` |
@@ -59,9 +62,60 @@ Complete technical details below.
 - **Add optional params:** `metric` (1-16), `distance` (1-255), `name`, `tag` (0-4294967295)
 - **Safety:** `confirm=True` gate + `dry_run=True` preview (same pattern as other ICX config tools)
 - **Validation:** new validators `_validate_netmask`, `_validate_route_metric`, `_validate_route_distance`, `_validate_route_name`, `_validate_route_tag`, `_normalize_next_hop` — block command injection
-- **Live-tested:** added `192.0.2.0/24 null0` then deleted it on `10.80.172.32` (acc-poc) — routing table verified before/after
+- **Live-tested:** added `192.0.2.0/24 null0` then deleted it on a lab ICX access switch — routing table verified before/after
 - **Tests:** +14 (TestIpRoute 5, TestIpRouteDelete 4, TestIpRouteValidation 5) — 234 → 248 pytest pass
 - **Tool count:** 80 → 82 tools, ICX 40 → 42
+
+---
+
+## 2026-09-01 — Static IPv6 Route Add/Delete (ICX)
+
+### New tools: `ruckus_device_ipv6_route` + `ruckus_device_ipv6_route_delete` (enhancement)
+- **Files:** `adapters/device_ssh.py`, `tools/icx_device.py`
+- **Add:** `ruckus_device_ipv6_route(host, dest, next_hop, metric=None, distance=None, confirm=False, dry_run=False)` → `ipv6 route <dest>/<prefix> <next-hop>`
+- **Delete:** `ruckus_device_ipv6_route_delete(host, dest, next_hop, confirm=False, dry_run=False)` → `no ipv6 route <dest>/<prefix> <next-hop>`
+- **dest:** IPv6 prefix (e.g. `2001:db8::/32`), validated by existing `_validate_route_dest_ipv6`
+- **next-hop:** IPv6 address, `null0` (blackhole/drop), or outgoing interface (`ethernet <port>`, `lag <id>`, `ve <id>`, `tunnel <id>`)
+- **Add optional params:** `metric` (1-16), `distance` (1-255)
+- **Safety:** `confirm=True` gate + `dry_run=True` preview (same pattern as IPv4 route tools)
+- **Validation:** new helper `_normalize_next_hop_ipv6` — block command injection; reuses `_validate_route_metric`/`_validate_route_distance`
+- **Tests:** +13 (TestIpv6Route 6, TestIpv6RouteDelete 4, TestIpv6RouteValidation 3) — 248 → 261 pytest pass
+- **Tool count:** 82 → 84 tools, ICX 42 → 44
+
+---
+
+## 2026-09-01 — IPv6 Unicast Routing + CLI Error Detection (ICX)
+
+### New tool: `ruckus_device_ipv6_unicast_routing` (enhancement)
+- **Files:** `adapters/device_ssh.py`, `tools/icx_device.py`
+- **Enable/disable:** `ruckus_device_ipv6_unicast_routing(host, enable=True, confirm=False, dry_run=False)` → `ipv6 unicast-routing` / `no ipv6 unicast-routing`
+- **Why:** `ipv6 route` is rejected on the device until `ipv6 unicast-routing` is enabled globally
+- **Safety:** `confirm=True` gate + `dry_run=True` preview
+- **Tests:** +4 (TestIpv6UnicastRouting) — 261 → 265 pytest pass
+
+### Informative CLI errors (bug fix)
+- **Files:** `adapters/device_ssh.py`
+- **Problem:** config tools used `send_command_timing` without reading output, so a rejected command (e.g. `ipv6 unicast-routing must be enabled before configuring static route`) still returned `added: true` / `deleted: true`
+- **Fix:** new `_send_config()` helper + `_extract_cli_error()`; IPv4/IPv6 route add/delete and unicast-routing now return `{"error": "<cli message>"}` when the switch rejects a command
+- **Detection patterns:** `Unrecognized command`, `Invalid input`, `Incomplete command`, `must be enabled`, `not found`, `access denied`, `already exists`, etc.
+- **Live-verified:** on a lab ICX access switch the IPv6 route add correctly reported the `ipv6 unicast-routing must be enabled...` error instead of a false success
+- **Tests:** +3 (TestCliErrorDetection) — 265 → 268 pytest pass
+
+### Tool count
+- **Tool count:** 84 → 85 tools, ICX 44 → 45, destructive 16 → 17
+
+---
+
+## 2026-09-01 — Log Noise Reduction
+
+### Quieter default logging (enhancement)
+- **File:** `server.py`
+- **Problem:** per-request INFO spam from `mcp.server.lowlevel.server` (`Processing request of type ...`), `paramiko.transport` (`Connected ...` / `Authentication ... successful!`), and uvicorn's HTTP access log
+- **Fix:**
+  - `mcp.server.lowlevel.server` and `paramiko.transport` loggers are set to `WARNING`
+  - uvicorn access log disabled (`access_log=False`)
+  - App logs (`tools.*`, `adapters.*`, `ruckus-mcp`) unchanged at `LOG_LEVEL`
+- **Escape hatch:** set `LOG_LEVEL=DEBUG` to restore full framework/SSH/access logging
 
 ---
 

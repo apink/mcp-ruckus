@@ -518,6 +518,38 @@ class MockRuckusDeviceDriver:
         return {"host": "203.0.113.1", "dest": dest, "mask": mask,
                 "next_hop": next_hop, "deleted": True}
 
+    def add_static_route_ipv6(
+        self, dest: str, next_hop: str,
+        metric: int | None = None, distance: int | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        if dry_run:
+            return {"host": "203.0.113.1", "dest": dest,
+                    "next_hop": next_hop, "dry_run": True,
+                    "commands": ["conf t", f"ipv6 route {dest} {next_hop}", "end"]}
+        return {"host": "203.0.113.1", "dest": dest,
+                "next_hop": next_hop, "added": True}
+
+    def delete_static_route_ipv6(
+        self, dest: str, next_hop: str, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        if dry_run:
+            return {"host": "203.0.113.1", "dest": dest,
+                    "next_hop": next_hop, "dry_run": True,
+                    "commands": ["conf t", f"no ipv6 route {dest} {next_hop}", "end"]}
+        return {"host": "203.0.113.1", "dest": dest,
+                "next_hop": next_hop, "deleted": True}
+
+    def set_ipv6_unicast_routing(
+        self, enable: bool = True, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        action = "enable" if enable else "disable"
+        command = "ipv6 unicast-routing" if enable else "no ipv6 unicast-routing"
+        if dry_run:
+            return {"host": "203.0.113.1", "action": action, "dry_run": True,
+                    "commands": ["conf t", command, "end"]}
+        return {"host": "203.0.113.1", "action": action, "success": True}
+
 
 class MockICXDevice:
     def __init__(self, host: str = "", name: str = "", vendor: str = "ruckus",

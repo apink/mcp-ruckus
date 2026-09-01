@@ -24,7 +24,7 @@ How it works, in one picture:
 You (plain English)  →  AI assistant  →  this server (MCP)  →  your Ruckus gear
 ```
 
-The server speaks **MCP** (Model Context Protocol), the standard way AI tools talk to external programs. It exposes **82 tools** for monitoring and managing Ruckus wireless and switching gear.
+The server speaks **MCP** (Model Context Protocol), the standard way AI tools talk to external programs. It exposes **85 tools** for monitoring and managing Ruckus wireless and switching gear.
 
 ### Jargon, in plain words
 
@@ -123,7 +123,7 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 | `MCP_TRANSPORT` | How the server talks to the AI: `streamable-http` (default) or `sse` | `streamable-http` |
 | `MCP_HOST` | Which network address to listen on (`0.0.0.0` = all) | `0.0.0.0` |
 | `MCP_PORT` | Which port the server listens on | `8000` |
-| `LOG_LEVEL` | How much logging you want | `INFO` |
+| `LOG_LEVEL` | How much logging you want (`DEBUG` also shows framework/SSH/access noise) | `INFO` |
 | `MCP_MAX_ITEMS` | Hard cap on list length returned by list tools | `50` |
 | `MCP_API_KEY` | Optional password the AI must send to connect | - |
 | `MCP_ALLOWED_IPS` | Optional whitelist of IPs allowed to connect | `10.0.0.0/8` |
@@ -152,7 +152,7 @@ devices:
 
 ## Connect your AI assistant
 
-Now that the server is running, your next step is to introduce it to your AI assistant (Hermes, OpenClaw, Claude Code, etc.). Once connected, the 82 tools will show up inside the assistant and you can use them just by asking.
+Now that the server is running, your next step is to introduce it to your AI assistant (Hermes, OpenClaw, Claude Code, etc.). Once connected, the 85 tools will show up inside the assistant and you can use them just by asking.
 
 > Replace `{SERVER_IP}` with the IP or hostname of the machine running the server. If the assistant runs on the same computer, you can use `localhost`.
 
@@ -265,8 +265,8 @@ To quickly check that the server starts and responds:
 
 | Doc | Content |
 |---|---|
-| [docs/TOOLS.md](docs/TOOLS.md) | Complete list of 82 tools |
-| [DOCS_SAFETY.md](DOCS_SAFETY.md) | Safety gates (14 destructive tools) + dry-run preview |
+| [docs/TOOLS.md](docs/TOOLS.md) | Complete list of 85 tools |
+| [DOCS_SAFETY.md](DOCS_SAFETY.md) | Safety gates (17 destructive tools) + dry-run preview |
 | [SECURITY.md](SECURITY.md) | Security policy, input validation, credential handling |
 | [CHANGES.md](CHANGES.md) | Changelog + release notes |
 | [SKILL.md](SKILL.md) | AI agent skill (copy to your agent's skills dir) |

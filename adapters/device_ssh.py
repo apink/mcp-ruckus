@@ -161,6 +161,52 @@ def _normalize_next_hop(next_hop: str) -> str:
     return _validate_ipv4(nh)
 
 
+def _normalize_next_hop_ipv6(next_hop: str) -> str:
+    """Normalize an IPv6 static route next-hop (IPv6, null0, or interface)."""
+    nh = (next_hop or "").strip()
+    if not nh:
+        raise ValueError("Empty next hop")
+    if nh == "null0":
+        return nh
+    if nh.startswith("ethernet "):
+        return f"ethernet {_validate_port(nh.split(None, 1)[1])}"
+    if nh.startswith("lag "):
+        raw = nh.split(None, 1)[1]
+        if not raw.isdigit() or not (1 <= int(raw) <= 255):
+            raise ValueError(f"Invalid LAG id (1-255): {next_hop!r}")
+        return f"lag {raw}"
+    if nh.startswith("ve "):
+        raw = nh.split(None, 1)[1]
+        if not raw.isdigit() or not (1 <= int(raw) <= 4096):
+            raise ValueError(f"Invalid VE id (1-4096): {next_hop!r}")
+        return f"ve {raw}"
+    if nh.startswith("tunnel "):
+        raw = nh.split(None, 1)[1]
+        if not raw.isdigit() or not (1 <= int(raw) <= 65535):
+            raise ValueError(f"Invalid tunnel id (1-65535): {next_hop!r}")
+        return f"tunnel {raw}"
+    return _validate_ipv6(nh)
+
+
+# ICX CLI error fragments — used to detect rejected config commands so a
+# silently-ignored "added: true" is never returned.
+CLI_ERROR_RE = re.compile(
+    r"(unrecognized command|invalid input|incomplete command|ambiguous command|"
+    r"must be enabled|error:|not found|access denied|permission denied|"
+    r"invalid .* (range|value|id)|in use|already exists)",
+    re.IGNORECASE,
+)
+
+
+def _extract_cli_error(text: str) -> str | None:
+    """Return the first CLI error line from command output, else None."""
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if stripped and CLI_ERROR_RE.search(stripped):
+            return stripped
+    return None
+
+
 def _parse_vlan_spec(vlan_spec: str) -> list[int]:
     """Parse VLAN spec to list of VLAN IDs.
 
@@ -283,6 +329,16 @@ class RuckusDeviceDriver:
         except Exception:
             sem.release()
             raise
+
+    def _send_config(self, commands: list[str]) -> str:
+        """Send config-mode commands over one session; return combined output."""
+        outputs: list[str] = []
+        with self._connect() as conn:
+            for cmd in commands:
+                outputs.append(
+                    conn.send_command_timing(cmd, delay_factor=2, read_timeout=10)
+                )
+        return "\n".join(outputs)
 
     @staticmethod
     def _normalize(value: str | None) -> str | None:
@@ -1907,17 +1963,17 @@ class RuckusDeviceDriver:
             self.host, dest, mask, next_hop_cmd,
         )
         try:
-            with self._connect() as conn:
-                for cmd in commands:
-                    conn.send_command_timing(
-                        cmd, delay_factor=2, read_timeout=10,
-                    )
-            return {"host": self.host, "dest": dest, "mask": mask,
-                    "next_hop": next_hop_cmd, "added": True}
+            output = self._send_config(commands)
         except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
             return {"host": self.host, "dest": dest, "mask": mask, "error": str(exc)}
         except Exception as exc:
             return {"host": self.host, "dest": dest, "mask": mask, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "dest": dest, "mask": mask,
+                    "next_hop": next_hop_cmd, "error": cli_error}
+        return {"host": self.host, "dest": dest, "mask": mask,
+                "next_hop": next_hop_cmd, "added": True}
 
     def delete_static_route(
         self,
@@ -1942,17 +1998,115 @@ class RuckusDeviceDriver:
             self.host, dest, mask, next_hop_cmd,
         )
         try:
-            with self._connect() as conn:
-                for cmd in commands:
-                    conn.send_command_timing(
-                        cmd, delay_factor=2, read_timeout=10,
-                    )
-            return {"host": self.host, "dest": dest, "mask": mask,
-                    "next_hop": next_hop_cmd, "deleted": True}
+            output = self._send_config(commands)
         except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
             return {"host": self.host, "dest": dest, "mask": mask, "error": str(exc)}
         except Exception as exc:
             return {"host": self.host, "dest": dest, "mask": mask, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "dest": dest, "mask": mask,
+                    "next_hop": next_hop_cmd, "error": cli_error}
+        return {"host": self.host, "dest": dest, "mask": mask,
+                "next_hop": next_hop_cmd, "deleted": True}
+
+    def add_static_route_ipv6(
+        self,
+        dest: str,
+        next_hop: str,
+        metric: int | None = None,
+        distance: int | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Add an IPv6 static route (ipv6 route <dest>/<prefix> <next-hop>)."""
+        _validate_route_dest_ipv6(dest)
+        next_hop_cmd = _normalize_next_hop_ipv6(next_hop)
+
+        cmd = f"ipv6 route {dest} {next_hop_cmd}"
+        if metric is not None:
+            cmd += f" {_validate_route_metric(metric)}"
+        if distance is not None:
+            cmd += f" distance {_validate_route_distance(distance)}"
+
+        commands = ["configure terminal", cmd, "end"]
+        if dry_run:
+            return {"host": self.host, "dest": dest,
+                    "next_hop": next_hop_cmd, "dry_run": True, "commands": commands}
+
+        logger.info(
+            "add_static_route_ipv6: host=%s dest=%s next_hop=%s",
+            self.host, dest, next_hop_cmd,
+        )
+        try:
+            output = self._send_config(commands)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "dest": dest, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "dest": dest, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "dest": dest,
+                    "next_hop": next_hop_cmd, "error": cli_error}
+        return {"host": self.host, "dest": dest,
+                "next_hop": next_hop_cmd, "added": True}
+
+    def delete_static_route_ipv6(
+        self,
+        dest: str,
+        next_hop: str,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Delete an IPv6 static route (no ipv6 route <dest>/<prefix> <next-hop>)."""
+        _validate_route_dest_ipv6(dest)
+        next_hop_cmd = _normalize_next_hop_ipv6(next_hop)
+
+        cmd = f"no ipv6 route {dest} {next_hop_cmd}"
+        commands = ["configure terminal", cmd, "end"]
+        if dry_run:
+            return {"host": self.host, "dest": dest,
+                    "next_hop": next_hop_cmd, "dry_run": True, "commands": commands}
+
+        logger.info(
+            "delete_static_route_ipv6: host=%s dest=%s next_hop=%s",
+            self.host, dest, next_hop_cmd,
+        )
+        try:
+            output = self._send_config(commands)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "dest": dest, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "dest": dest, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "dest": dest,
+                    "next_hop": next_hop_cmd, "error": cli_error}
+        return {"host": self.host, "dest": dest,
+                "next_hop": next_hop_cmd, "deleted": True}
+
+    def set_ipv6_unicast_routing(
+        self, enable: bool = True, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Enable or disable IPv6 unicast routing globally on the switch."""
+        action = "enable" if enable else "disable"
+        command = "ipv6 unicast-routing" if enable else "no ipv6 unicast-routing"
+        commands = ["configure terminal", command, "end"]
+        if dry_run:
+            return {"host": self.host, "action": action,
+                    "dry_run": True, "commands": commands}
+
+        logger.info(
+            "set_ipv6_unicast_routing: host=%s action=%s", self.host, action,
+        )
+        try:
+            output = self._send_config(commands)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "action": action, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "action": action, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "action": action, "error": cli_error}
+        return {"host": self.host, "action": action, "success": True}
 
     def get_poe_status(
         self, port: str | None = None,

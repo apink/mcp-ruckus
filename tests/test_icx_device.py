@@ -4,7 +4,9 @@ from __future__ import annotations
 import pytest
 
 from adapters.device_ssh import (
+    _extract_cli_error,
     _normalize_next_hop,
+    _normalize_next_hop_ipv6,
     _validate_netmask,
     _validate_route_distance,
     _validate_route_metric,
@@ -28,7 +30,10 @@ from tools.icx_device import (
     _device_ip_route_delete,
     _device_ip_routes,
     _device_ipv6_interfaces,
+    _device_ipv6_route,
+    _device_ipv6_route_delete,
     _device_ipv6_routes,
+    _device_ipv6_unicast_routing,
     _device_lag_summary,
     _device_lldp_neighbors,
     _device_mac_table_vlan,
@@ -657,3 +662,116 @@ class TestIpRouteValidation:
         assert _validate_route_tag(0) == 0
         with pytest.raises(ValueError):
             _validate_route_tag(-1)
+
+
+class TestIpv6Route:
+    def test_unknown_device(self):
+        r = _device_ipv6_route("192.168.99.99", "2001:db8::/32", "null0")
+        assert r["error"] == "device_not_found"
+
+    def test_add_nexthop_ip(self):
+        r = _device_ipv6_route("203.0.113.1", "2001:db8::/32", "2001:db8::1")
+        assert r["added"] is True
+        assert r["dest"] == "2001:db8::/32"
+        assert r["next_hop"] == "2001:db8::1"
+
+    def test_add_null0(self):
+        r = _device_ipv6_route("203.0.113.1", "2001:db8:1::/48", "null0")
+        assert r["added"] is True
+        assert r["next_hop"] == "null0"
+
+    def test_add_interface(self):
+        r = _device_ipv6_route("203.0.113.1", "2001:db8::/32", "tunnel 1")
+        assert r["added"] is True
+        assert r["next_hop"] == "tunnel 1"
+
+    def test_add_with_optional_params(self):
+        r = _device_ipv6_route("203.0.113.1", "2001:db8:2::/48",
+                               "2001:db8::1", metric=10, distance=200)
+        assert r["added"] is True
+
+    def test_dry_run(self):
+        r = _device_ipv6_route("203.0.113.1", "2001:db8::/32",
+                               "2001:db8::1", dry_run=True)
+        assert r["dry_run"] is True
+        assert "commands" in r
+        assert len(r["commands"]) == 3
+
+
+class TestIpv6RouteDelete:
+    def test_unknown_device(self):
+        r = _device_ipv6_route_delete("192.168.99.99", "2001:db8::/32", "null0")
+        assert r["error"] == "device_not_found"
+
+    def test_delete_null0(self):
+        r = _device_ipv6_route_delete("203.0.113.1", "2001:db8::/32", "null0")
+        assert r["deleted"] is True
+        assert r["dest"] == "2001:db8::/32"
+        assert r["next_hop"] == "null0"
+
+    def test_delete_nexthop_ip(self):
+        r = _device_ipv6_route_delete("203.0.113.1", "2001:db8::/32", "2001:db8::1")
+        assert r["deleted"] is True
+        assert r["next_hop"] == "2001:db8::1"
+
+    def test_dry_run(self):
+        r = _device_ipv6_route_delete("203.0.113.1", "2001:db8::/32",
+                                      "null0", dry_run=True)
+        assert r["dry_run"] is True
+        assert "commands" in r
+        assert len(r["commands"]) == 3
+
+
+class TestIpv6RouteValidation:
+    def test_normalize_next_hop_types(self):
+        assert _normalize_next_hop_ipv6("null0") == "null0"
+        assert _normalize_next_hop_ipv6("2001:db8::1") == "2001:db8::1"
+        assert _normalize_next_hop_ipv6("ethernet 1/1/1") == "ethernet 1/1/1"
+        assert _normalize_next_hop_ipv6("lag 2") == "lag 2"
+        assert _normalize_next_hop_ipv6("ve 10") == "ve 10"
+        assert _normalize_next_hop_ipv6("tunnel 1") == "tunnel 1"
+
+    def test_normalize_next_hop_rejects_injection(self):
+        with pytest.raises(ValueError):
+            _normalize_next_hop_ipv6("2001:db8::1; rm -rf /")
+
+    def test_dest_validation(self):
+        from adapters.device_ssh import _validate_route_dest_ipv6
+        assert _validate_route_dest_ipv6("2001:db8::/32") == "2001:db8::/32"
+        with pytest.raises(ValueError):
+            _validate_route_dest_ipv6("2001:db8::/129")
+
+
+class TestIpv6UnicastRouting:
+    def test_unknown_device(self):
+        r = _device_ipv6_unicast_routing("192.168.99.99")
+        assert r["error"] == "device_not_found"
+
+    def test_enable(self):
+        r = _device_ipv6_unicast_routing("203.0.113.1", enable=True)
+        assert r["success"] is True
+        assert r["action"] == "enable"
+
+    def test_disable(self):
+        r = _device_ipv6_unicast_routing("203.0.113.1", enable=False)
+        assert r["success"] is True
+        assert r["action"] == "disable"
+
+    def test_dry_run(self):
+        r = _device_ipv6_unicast_routing("203.0.113.1", enable=True, dry_run=True)
+        assert r["dry_run"] is True
+        assert r["commands"][1] == "ipv6 unicast-routing"
+
+
+class TestCliErrorDetection:
+    def test_detects_error_line(self):
+        out = "\nipv6 unicast-routing must be enabled before configuring static route\n"
+        assert _extract_cli_error(out) == \
+            "ipv6 unicast-routing must be enabled before configuring static route"
+
+    def test_detects_unrecognized_command(self):
+        assert _extract_cli_error("Unrecognized command") == "Unrecognized command"
+
+    def test_no_error_on_success(self):
+        assert _extract_cli_error("") is None
+        assert _extract_cli_error("configure terminal\n") is None
