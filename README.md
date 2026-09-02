@@ -7,7 +7,7 @@
 
 ## What is this?
 
-This is a small program that lets your **AI assistant** (Claude Code, Hermes, OpenClaw) talk to your **Ruckus network equipment** using plain language.
+This is a small program that lets your **AI assistant** (Claude Code, Hermes, OpenClaw etc) talk to your **Ruckus network equipment** using plain language.
 
 Normally, managing WiFi and switches means logging into each device and typing technical commands. With this server, you just ask the assistant things like:
 
