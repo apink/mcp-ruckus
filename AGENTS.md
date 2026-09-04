@@ -55,6 +55,7 @@ server.py                    # FastMCP entry (streamable-http default, SSE legac
 - **Error format**: return `{"error": "...", "detail": "..."}`, never raise through tool boundary
 - **List tools**: return `list_result(...)` envelope (`{items, total, returned, truncated, hint}`), never a bare list
 - **Destructive tools** require `confirm=True` gate; ICX config tools support `dry_run=True`
+- **Docs sync**: when tool count, destructive-tool count, or test count changes, update every doc in sync — `docs/TOOLS.md` (total + tool table), `SKILL.md` (Tool Summary enumerated list + destructive-tool list + workflows), `README.md` (counts), `DOCS_SAFETY.md` (title + table + dry-run count), `SECURITY.md` (test count), plus a `CHANGES.md` entry. Verify by enumerating against `tools/*.py` (e.g. `grep -c 'def ruckus_device_' tools/icx_device.py`), not just by bumping headline numbers.
 - **Test fixtures**: mock-only, never real hardware. Use RFC 5737 TEST-NET IPs (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`), IPv6 `2001:db8::/32`, and locally-administered MACs (`aa:bb:cc:*`, `cc:dd:ee:*`). Never commit real/internal IPs, hostnames, or MACs.
 
 ## Key Files

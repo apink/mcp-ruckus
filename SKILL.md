@@ -38,21 +38,29 @@ vSZ (31): ap_status, ap_detail, ap_radio_stats, ap_down, client_search, ap_high_
 ICX (50): ruckus_device_info, ruckus_device_status,
           ruckus_device_interfaces_summary, ruckus_device_interfaces_down,
           ruckus_device_interfaces_errors, ruckus_device_interfaces_stats,
-          ruckus_device_ip_addresses, ruckus_device_ip_routes, ruckus_device_ip_route,
-          ruckus_device_ip_route_delete, ruckus_device_ipv6_routes,
-          ruckus_device_vlan_summary, ruckus_device_port_vlan, ruckus_device_mac_table_vlan,
-          ruckus_device_find_mac, ruckus_device_lag_summary, ruckus_device_lldp_neighbors,
-          ruckus_device_poe_status, ruckus_device_arp_table, ruckus_device_chassis_health,
-          ruckus_device_ipv6_interfaces, ruckus_device_ping, ruckus_device_ping_ipv6,
+          ruckus_device_ip_addresses, ruckus_device_ip_routes,
+          ruckus_device_ipv6_routes, ruckus_device_ipv6_interfaces,
+          ruckus_device_vlan_summary, ruckus_device_port_vlan,
+          ruckus_device_mac_table_vlan, ruckus_device_find_mac,
+          ruckus_device_lag_summary, ruckus_device_lldp_neighbors,
+          ruckus_device_poe_status, ruckus_device_arp_table,
+          ruckus_device_chassis_health, ruckus_device_resources,
+          ruckus_device_ping, ruckus_device_ping_ipv6,
           ruckus_device_traceroute, ruckus_device_traceroute_ipv6,
           ruckus_device_config_backup, ruckus_device_config_diff,
-          ruckus_device_resources, ruckus_device_sfp_info, ruckus_device_cable_diag,
-          ruckus_device_syslog, ruckus_device_optic_info, ruckus_device_time,
-          ruckus_device_spanning_tree, ruckus_device_access_lists,
-          ruckus_device_users, ruckus_device_ssh_status, ruckus_device_port_state,
+          ruckus_device_sfp_info, ruckus_device_cable_diag,
+          ruckus_device_syslog, ruckus_device_optic_info,
+          ruckus_device_time, ruckus_device_spanning_tree,
+          ruckus_device_access_lists, ruckus_device_users,
+          ruckus_device_ssh_status, ruckus_device_port_state,
           ruckus_device_vlan_create, ruckus_device_vlan_delete,
-          ruckus_device_vlan_port,
-          ruckus_device_poe_port
+          ruckus_device_vlan_port, ruckus_device_poe_port,
+          ruckus_device_ip_route, ruckus_device_ip_route_delete,
+          ruckus_device_ipv6_route, ruckus_device_ipv6_route_delete,
+          ruckus_device_ipv6_unicast_routing,
+          ruckus_device_timezone_set, ruckus_device_clock_set,
+          ruckus_device_ntp_server, ruckus_device_ntp_control,
+          ruckus_device_config_save
 
 Inventory (3): ruckus_list_devices, ruckus_devices_by_location, ruckus_devices_by_role
 Bulk (3): ruckus_all_device_info, ruckus_all_device_status, ruckus_all_device_backup
@@ -61,7 +69,7 @@ Connectivity (3): ping_device, check_port, http_latency
 
 ## Critical Rules
 
-- **17 destructive tools require `confirm=True`**: `apply_rf_recommendation`, `apply_ap_config`, `create_wlan`, `modify_wlan`, `reboot_ap`, `disconnect_client`, `toggle_wlan`, `ruckus_device_port_state`, `ruckus_device_vlan_create`, `ruckus_device_vlan_delete`, `ruckus_device_vlan_port`, `ruckus_device_poe_port`, `ruckus_device_ip_route`, `ruckus_device_ip_route_delete`, `ruckus_device_ipv6_route`, `ruckus_device_ipv6_route_delete`, `ruckus_device_ipv6_unicast_routing`
+- **22 destructive tools require `confirm=True`**: `apply_rf_recommendation`, `apply_ap_config`, `create_wlan`, `modify_wlan`, `reboot_ap`, `disconnect_client`, `toggle_wlan`, `ruckus_device_port_state`, `ruckus_device_vlan_create`, `ruckus_device_vlan_delete`, `ruckus_device_vlan_port`, `ruckus_device_poe_port`, `ruckus_device_ip_route`, `ruckus_device_ip_route_delete`, `ruckus_device_ipv6_route`, `ruckus_device_ipv6_route_delete`, `ruckus_device_ipv6_unicast_routing`, `ruckus_device_timezone_set`, `ruckus_device_clock_set`, `ruckus_device_ntp_server`, `ruckus_device_ntp_control`, `ruckus_device_config_save`
 - **Pick host by IP, not name** — names are not unique in `devices.yaml`
 - **Error return format**: `{"error": "...", "detail": "..."}` — not exceptions
 - **vSZ session TTL**: 10 minutes, auto re-login
@@ -119,6 +127,14 @@ Connectivity (3): ping_device, check_port, http_latency
 1. `ruckus_device_time(host="...")` → NTP synced? peers stratum? reachable?
 2. `ruckus_device_syslog(host="...", lines=20, severity="EW")` → check NTP error logs
 
+### Fix device time / NTP
+1. `ruckus_device_time(host="...")` → check current clock + NTP sync state
+2. `ruckus_device_timezone_set(host="...", timezone="gmt+07", dry_run=True)` → preview; then `confirm=True`
+3. `ruckus_device_clock_set(host="...", time="14:00:00", date="09-04-2026", dry_run=True)` → manual clock (privileged exec); then `confirm=True`
+4. `ruckus_device_ntp_server(host="...", server="<ntp-ip>", action="add", dry_run=True)` → add NTP server; then `confirm=True`
+5. `ruckus_device_ntp_control(host="...", enable=True, confirm=True)` → ensure NTP enabled
+6. `ruckus_device_config_save(host="...", dry_run=True)` → preview `write memory`; then `confirm=True` to persist
+
 ### Optic DOM monitoring
 1. `ruckus_device_sfp_info(host="...")` → list all SFP/SFP+ ports + type
 2. `ruckus_device_optic_info(host="...", port="1/2/2")` → DOM: temp, voltage, tx/rx power + alarm/warning thresholds
@@ -170,3 +186,5 @@ Connectivity (3): ping_device, check_port, http_latency
 | Syslog entry without message (e.g. `COPY COMPLETED`) | `ruckus_device_syslog` | Parser handles format without `:message` — regex `:?(.*)$` (fixed 2026-08-10) |
 | ICX `vlan-config remove <id>` invalid | firmware 08.0.95 | Use VLAN sub-mode: `vlan <id>` → `no tagged ethernet <port>` |
 | VLAN down → interface "up" but empty MAC/IP table | vSZ + ICX | Always check VLAN status too |
+| ICX `clock timezone gmt+07` invalid | firmware 08.0.95 | Use two tokens: `clock timezone gmt gmt+07` |
+| ICX `clock set` rejected in config mode | firmware 08.0.95 | Run at privileged exec: `clock set hh:mm:ss mm-dd-yyyy` |

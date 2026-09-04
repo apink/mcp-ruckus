@@ -266,7 +266,7 @@ To quickly check that the server starts and responds:
 | Doc | Content |
 |---|---|
 | [docs/TOOLS.md](docs/TOOLS.md) | Complete list of 90 tools |
-| [DOCS_SAFETY.md](DOCS_SAFETY.md) | Safety gates (17 destructive tools) + dry-run preview |
+| [DOCS_SAFETY.md](DOCS_SAFETY.md) | Safety gates (22 destructive tools) + dry-run preview |
 | [SECURITY.md](SECURITY.md) | Security policy, input validation, credential handling |
 | [CHANGES.md](CHANGES.md) | Changelog + release notes |
 | [SKILL.md](SKILL.md) | AI agent skill (copy to your agent's skills dir) |
