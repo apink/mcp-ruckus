@@ -27,6 +27,9 @@ IPV4_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 IPV6_RE = re.compile(r"^[0-9a-fA-F:]+$")
 ROUTE_DEST_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}(/\d{1,2})?$")
 ROUTE_DEST_IPV6_RE = re.compile(r"^[0-9a-fA-F:]+(/\d{1,3})?$")
+TIMEZONE_RE = re.compile(r"^gmt([+-])(\d{1,2})(:([0-5]\d))?$")
+CLOCK_TIME_RE = re.compile(r"^(\d{2}):(\d{2}):(\d{2})$")
+CLOCK_DATE_RE = re.compile(r"^(\d{1,2})-(\d{1,2})-(\d{2}|\d{4})$")
 
 # Route type codes → name (ICX show ip route)
 ROUTE_TYPE_MAP: dict[str, str] = {
@@ -67,6 +70,46 @@ def _validate_ipv6(ip: str) -> str:
     if not IPV6_RE.match(ip):
         raise ValueError(f"Invalid IPv6 format: {ip!r}")
     return ip
+
+
+def _validate_timezone(timezone: str) -> str:
+    """Validate ICX clock timezone (e.g. gmt+07 or gmt+05:30)."""
+    tz = timezone.strip().lower()
+    m = TIMEZONE_RE.match(tz)
+    if not m:
+        raise ValueError(f"Invalid timezone (expected gmt±HH[:MM]): {timezone!r}")
+    if int(m.group(2)) > 14:
+        raise ValueError(f"Invalid timezone hour offset (0-14): {timezone!r}")
+    return tz
+
+
+def _validate_clock_time(clock_time: str) -> str:
+    """Validate clock time in HH:MM:SS format."""
+    value = clock_time.strip()
+    m = CLOCK_TIME_RE.match(value)
+    if not m:
+        raise ValueError(f"Invalid clock time (expected HH:MM:SS): {clock_time!r}")
+    hh, mm, ss = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    if hh > 23 or mm > 59 or ss > 59:
+        raise ValueError(f"Invalid clock time range: {clock_time!r}")
+    return value
+
+
+def _validate_clock_date(date: str) -> str:
+    """Validate clock date in 'MM-DD-YYYY' format (FastIron clock set)."""
+    value = date.strip()
+    m = CLOCK_DATE_RE.match(value)
+    if not m:
+        raise ValueError(f"Invalid clock date (expected 'MM-DD-YYYY'): {date!r}")
+    month, day = int(m.group(1)), int(m.group(2))
+    year = m.group(3)
+    if not (1 <= month <= 12):
+        raise ValueError(f"Invalid clock date month (1-12): {date!r}")
+    if not (1 <= day <= 31):
+        raise ValueError(f"Invalid clock date day (1-31): {date!r}")
+    if len(year) == 2:
+        year = f"20{year}"
+    return f"{month:02d}-{day:02d}-{year}"
 
 
 def _validate_vlan_id(vlan_id: int) -> int:
@@ -2107,6 +2150,119 @@ class RuckusDeviceDriver:
         if cli_error:
             return {"host": self.host, "action": action, "error": cli_error}
         return {"host": self.host, "action": action, "success": True}
+
+    # ── Time / NTP Config Tools ─────────────────────────────────
+
+    def set_timezone(self, timezone: str, dry_run: bool = False) -> dict[str, Any]:
+        """Set the system timezone (e.g. 'gmt+07')."""
+        timezone = _validate_timezone(timezone)
+        commands = ["configure terminal", f"clock timezone gmt {timezone}", "end"]
+        if dry_run:
+            return {"host": self.host, "timezone": timezone,
+                    "dry_run": True, "commands": commands}
+        logger.info("set_timezone: host=%s timezone=%s", self.host, timezone)
+        try:
+            output = self._send_config(commands)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "timezone": timezone, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "timezone": timezone, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "timezone": timezone, "error": cli_error}
+        return {"host": self.host, "timezone": timezone, "success": True}
+
+    def set_clock(self, time: str, date: str, dry_run: bool = False) -> dict[str, Any]:
+        """Set the system date and time manually (privileged exec, no config mode)."""
+        time = _validate_clock_time(time)
+        date = _validate_clock_date(date)
+        commands = [f"clock set {time} {date}"]
+        if dry_run:
+            return {"host": self.host, "time": time, "date": date,
+                    "dry_run": True, "commands": commands}
+        logger.info("set_clock: host=%s time=%s date=%s", self.host, time, date)
+        try:
+            with self._connect() as conn:
+                output = conn.send_command_timing(
+                    commands[0], delay_factor=2, read_timeout=10,
+                )
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "time": time, "date": date, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "time": time, "date": date, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "time": time, "date": date, "error": cli_error}
+        return {"host": self.host, "time": time, "date": date, "success": True}
+
+    def set_ntp_server(
+        self, server: str, action: str = "add", dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Add or remove an NTP server (IPv4)."""
+        _validate_ipv4(server)
+        if action not in ("add", "remove"):
+            raise ValueError(f"Invalid action (expected 'add' or 'remove'): {action!r}")
+        ntp_cmd = f"server {server}" if action == "add" else f"no server {server}"
+        commands = ["configure terminal", "ntp", ntp_cmd, "end"]
+        if dry_run:
+            return {"host": self.host, "server": server, "action": action,
+                    "dry_run": True, "commands": commands}
+        logger.info(
+            "set_ntp_server: host=%s server=%s action=%s", self.host, server, action,
+        )
+        try:
+            output = self._send_config(commands)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "server": server, "action": action,
+                    "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "server": server, "action": action,
+                    "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "server": server, "action": action,
+                    "error": cli_error}
+        return {"host": self.host, "server": server, "action": action, "success": True}
+
+    def set_ntp_state(self, enable: bool = True, dry_run: bool = False) -> dict[str, Any]:
+        """Enable or disable the NTP service."""
+        state = "enabled" if enable else "disabled"
+        ntp_cmd = "no disable" if enable else "disable"
+        commands = ["configure terminal", "ntp", ntp_cmd, "end"]
+        if dry_run:
+            return {"host": self.host, "state": state,
+                    "dry_run": True, "commands": commands}
+        logger.info("set_ntp_state: host=%s state=%s", self.host, state)
+        try:
+            output = self._send_config(commands)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "state": state, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "state": state, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "state": state, "error": cli_error}
+        return {"host": self.host, "state": state, "success": True}
+
+    def save_config(self, dry_run: bool = False) -> dict[str, Any]:
+        """Persist the running configuration to startup config (write memory)."""
+        commands = ["write memory"]
+        if dry_run:
+            return {"host": self.host, "dry_run": True, "commands": commands}
+        logger.info("save_config: host=%s", self.host)
+        try:
+            with self._connect() as conn:
+                output = conn.send_command_timing(
+                    "write memory", delay_factor=2, read_timeout=15,
+                )
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as exc:
+            return {"host": self.host, "error": str(exc)}
+        except Exception as exc:
+            return {"host": self.host, "error": str(exc)}
+        cli_error = _extract_cli_error(output)
+        if cli_error:
+            return {"host": self.host, "error": cli_error}
+        return {"host": self.host, "success": True, "saved": True}
 
     def get_poe_status(
         self, port: str | None = None,

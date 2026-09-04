@@ -560,6 +560,69 @@ def _device_ipv6_unicast_routing(
     return driver.set_ipv6_unicast_routing(enable=enable, dry_run=dry_run)
 
 
+def _device_timezone_set(host: str, timezone: str, dry_run: bool = False) -> dict[str, Any]:
+    logger.info(
+        "device_timezone_set: host=%s timezone=%s dry_run=%s",
+        host, timezone, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "timezone": timezone, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.set_timezone(timezone, dry_run=dry_run)
+
+
+def _device_clock_set(
+    host: str, time: str, date: str, dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_clock_set: host=%s time=%s date=%s dry_run=%s",
+        host, time, date, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "time": time, "date": date, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.set_clock(time, date, dry_run=dry_run)
+
+
+def _device_ntp_server(
+    host: str, server: str, action: str = "add", dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_ntp_server: host=%s server=%s action=%s dry_run=%s",
+        host, server, action, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "server": server, "action": action,
+                "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.set_ntp_server(server, action=action, dry_run=dry_run)
+
+
+def _device_ntp_control(
+    host: str, enable: bool = True, dry_run: bool = False,
+) -> dict[str, Any]:
+    logger.info(
+        "device_ntp_control: host=%s enable=%s dry_run=%s", host, enable, dry_run,
+    )
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.set_ntp_state(enable=enable, dry_run=dry_run)
+
+
+def _device_config_save(host: str, dry_run: bool = False) -> dict[str, Any]:
+    logger.info("device_config_save: host=%s dry_run=%s", host, dry_run)
+    device = get_device_record(host)
+    if not device:
+        return {"host": host, "error": "device_not_found"}
+    driver = RuckusDeviceDriver(device)
+    return driver.save_config(dry_run=dry_run)
+
+
 def register_tools(mcp: FastMCP) -> None:
     """Register ICX device tools (ruckus_ prefix)."""
     @mcp.tool()
@@ -1111,3 +1174,117 @@ def register_tools(mcp: FastMCP) -> None:
                 "detail": "Set confirm=True to change IPv6 unicast routing",
             }
         return _device_ipv6_unicast_routing(host, enable=enable)
+
+    # ── Time / NTP Config Tools (destructive) ────────────────────
+
+    @mcp.tool()
+    def ruckus_device_timezone_set(
+        host: str, timezone: str, confirm: bool = False, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Set the system timezone on an ICX switch (e.g. 'gmt+07' for WIB).
+
+        Args:
+            host: Device host from inventory.
+            timezone: Timezone in 'gmt±HH[:MM]' format (e.g. 'gmt+07', 'gmt+05:30').
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_timezone_set(host, timezone, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to change the device timezone",
+            }
+        return _device_timezone_set(host, timezone)
+
+    @mcp.tool()
+    def ruckus_device_clock_set(
+        host: str, time: str, date: str, confirm: bool = False, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Set the system date and time manually (fallback when NTP is unavailable).
+
+        Runs 'clock set' at privileged exec level (no config mode).
+
+        Args:
+            host: Device host from inventory.
+            time: Time in HH:MM:SS format (e.g. '17:43:00').
+            date: Date in MM-DD-YYYY format (e.g. '09-04-2026').
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_clock_set(host, time, date, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to set the device clock",
+            }
+        return _device_clock_set(host, time, date)
+
+    @mcp.tool()
+    def ruckus_device_ntp_server(
+        host: str, server: str, action: str = "add", confirm: bool = False,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Add or remove an NTP server on an ICX switch.
+
+        Args:
+            host: Device host from inventory.
+            server: NTP server IPv4 address (e.g. '192.0.2.123').
+            action: 'add' to add the server, 'remove' to remove it.
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_ntp_server(host, server, action=action, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to modify NTP server configuration",
+            }
+        return _device_ntp_server(host, server, action=action)
+
+    @mcp.tool()
+    def ruckus_device_ntp_control(
+        host: str, enable: bool = True, confirm: bool = False, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Enable or disable the NTP service on an ICX switch.
+
+        Args:
+            host: Device host from inventory.
+            enable: True to enable NTP ('no disable'), False to disable ('disable').
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_ntp_control(host, enable=enable, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to change NTP service state",
+            }
+        return _device_ntp_control(host, enable=enable)
+
+    @mcp.tool()
+    def ruckus_device_config_save(
+        host: str, confirm: bool = False, dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Save the running configuration to startup config ('write memory').
+
+        Use this after making configuration changes (VLAN, route, PoE, time,
+        NTP, etc.) to persist them across a reboot.
+
+        Args:
+            host: Device host from inventory.
+            confirm: Set to True to execute. Without it, returns confirm_required.
+            dry_run: If True, returns planned commands without executing.
+        """
+        if dry_run:
+            return _device_config_save(host, dry_run=True)
+        if not confirm:
+            return {
+                "error": "confirm_required",
+                "detail": "Set confirm=True to save the running configuration",
+            }
+        return _device_config_save(host)

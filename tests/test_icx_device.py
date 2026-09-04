@@ -7,18 +7,23 @@ from adapters.device_ssh import (
     _extract_cli_error,
     _normalize_next_hop,
     _normalize_next_hop_ipv6,
+    _validate_clock_date,
+    _validate_clock_time,
     _validate_netmask,
     _validate_route_distance,
     _validate_route_metric,
     _validate_route_tag,
+    _validate_timezone,
 )
 from tools.icx_device import (
     _device_access_lists,
     _device_arp_table,
     _device_cable_diag,
     _device_chassis_health,
+    _device_clock_set,
     _device_config_backup,
     _device_config_diff,
+    _device_config_save,
     _device_find_mac,
     _device_info,
     _device_interfaces_down,
@@ -37,6 +42,8 @@ from tools.icx_device import (
     _device_lag_summary,
     _device_lldp_neighbors,
     _device_mac_table_vlan,
+    _device_ntp_control,
+    _device_ntp_server,
     _device_optic_info,
     _device_ping,
     _device_ping_ipv6,
@@ -51,6 +58,7 @@ from tools.icx_device import (
     _device_status,
     _device_syslog,
     _device_time,
+    _device_timezone_set,
     _device_traceroute,
     _device_traceroute_ipv6,
     _device_users,
@@ -761,6 +769,136 @@ class TestIpv6UnicastRouting:
         r = _device_ipv6_unicast_routing("203.0.113.1", enable=True, dry_run=True)
         assert r["dry_run"] is True
         assert r["commands"][1] == "ipv6 unicast-routing"
+
+
+class TestTimezoneSet:
+    def test_unknown_device(self):
+        r = _device_timezone_set("192.168.99.99", "gmt+07")
+        assert r["error"] == "device_not_found"
+
+    def test_set_timezone(self):
+        r = _device_timezone_set("203.0.113.1", "gmt+07")
+        assert r["timezone"] == "gmt+07"
+        assert r["success"] is True
+
+    def test_dry_run(self):
+        r = _device_timezone_set("203.0.113.1", "gmt+07", dry_run=True)
+        assert r["dry_run"] is True
+        assert r["commands"][1] == "clock timezone gmt gmt+07"
+
+
+class TestClockSet:
+    def test_unknown_device(self):
+        r = _device_clock_set("192.168.99.99", "17:43:00", "09-04-2026")
+        assert r["error"] == "device_not_found"
+
+    def test_set_clock(self):
+        r = _device_clock_set("203.0.113.1", "17:43:00", "09-04-2026")
+        assert r["success"] is True
+        assert r["time"] == "17:43:00"
+        assert r["date"] == "09-04-2026"
+
+    def test_dry_run(self):
+        r = _device_clock_set("203.0.113.1", "17:43:00", "09-04-2026", dry_run=True)
+        assert r["dry_run"] is True
+        assert r["commands"] == ["clock set 17:43:00 09-04-2026"]
+
+
+class TestNtpServer:
+    def test_unknown_device(self):
+        r = _device_ntp_server("192.168.99.99", "192.0.2.123")
+        assert r["error"] == "device_not_found"
+
+    def test_add(self):
+        r = _device_ntp_server("203.0.113.1", "192.0.2.123", action="add")
+        assert r["success"] is True
+        assert r["action"] == "add"
+        assert r["server"] == "192.0.2.123"
+
+    def test_remove(self):
+        r = _device_ntp_server("203.0.113.1", "192.0.2.123", action="remove")
+        assert r["action"] == "remove"
+        assert r["success"] is True
+
+    def test_dry_run(self):
+        r = _device_ntp_server("203.0.113.1", "192.0.2.123", action="add", dry_run=True)
+        assert r["dry_run"] is True
+        assert r["commands"][2] == "server 192.0.2.123"
+
+
+class TestNtpControl:
+    def test_unknown_device(self):
+        r = _device_ntp_control("192.168.99.99")
+        assert r["error"] == "device_not_found"
+
+    def test_enable(self):
+        r = _device_ntp_control("203.0.113.1", enable=True)
+        assert r["state"] == "enabled"
+        assert r["success"] is True
+
+    def test_disable(self):
+        r = _device_ntp_control("203.0.113.1", enable=False)
+        assert r["state"] == "disabled"
+
+    def test_dry_run(self):
+        r = _device_ntp_control("203.0.113.1", enable=False, dry_run=True)
+        assert r["dry_run"] is True
+        assert r["commands"][2] == "disable"
+
+
+class TestConfigSave:
+    def test_unknown_device(self):
+        r = _device_config_save("192.168.99.99")
+        assert r["error"] == "device_not_found"
+
+    def test_save(self):
+        r = _device_config_save("203.0.113.1")
+        assert r["success"] is True
+        assert r["saved"] is True
+
+    def test_dry_run(self):
+        r = _device_config_save("203.0.113.1", dry_run=True)
+        assert r["dry_run"] is True
+        assert r["commands"] == ["write memory"]
+
+
+class TestTimeConfigValidation:
+    def test_timezone_valid(self):
+        assert _validate_timezone("gmt+07") == "gmt+07"
+        assert _validate_timezone("GMT+05:30") == "gmt+05:30"
+        assert _validate_timezone("gmt-03") == "gmt-03"
+
+    def test_timezone_rejects_injection(self):
+        with pytest.raises(ValueError):
+            _validate_timezone("gmt+07; rm -rf /")
+        with pytest.raises(ValueError):
+            _validate_timezone("US/Pacific")
+        with pytest.raises(ValueError):
+            _validate_timezone("gmt+15")
+
+    def test_clock_time_valid(self):
+        assert _validate_clock_time("17:43:00") == "17:43:00"
+
+    def test_clock_time_rejects_invalid(self):
+        with pytest.raises(ValueError):
+            _validate_clock_time("25:00:00")
+        with pytest.raises(ValueError):
+            _validate_clock_time("17:43:00; rm -rf /")
+
+    def test_clock_date_valid(self):
+        assert _validate_clock_date("09-04-2026") == "09-04-2026"
+        assert _validate_clock_date("09-04-26") == "09-04-2026"
+        assert _validate_clock_date("1-4-2026") == "01-04-2026"
+
+    def test_clock_date_rejects_invalid(self):
+        with pytest.raises(ValueError):
+            _validate_clock_date("sep 04 2026")
+        with pytest.raises(ValueError):
+            _validate_clock_date("09-04-2026; rm -rf /")
+        with pytest.raises(ValueError):
+            _validate_clock_date("13-40-2026")
+        with pytest.raises(ValueError):
+            _validate_clock_date("09-32-2026")
 
 
 class TestCliErrorDetection:

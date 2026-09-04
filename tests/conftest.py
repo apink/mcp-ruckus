@@ -550,6 +550,42 @@ class MockRuckusDeviceDriver:
                     "commands": ["conf t", command, "end"]}
         return {"host": "203.0.113.1", "action": action, "success": True}
 
+    def set_timezone(self, timezone: str, dry_run: bool = False) -> dict[str, Any]:
+        if dry_run:
+            return {"host": "203.0.113.1", "timezone": timezone, "dry_run": True,
+                    "commands": ["conf t", f"clock timezone gmt {timezone}", "end"]}
+        return {"host": "203.0.113.1", "timezone": timezone, "success": True}
+
+    def set_clock(self, time: str, date: str, dry_run: bool = False) -> dict[str, Any]:
+        if dry_run:
+            return {"host": "203.0.113.1", "time": time, "date": date, "dry_run": True,
+                    "commands": [f"clock set {time} {date}"]}
+        return {"host": "203.0.113.1", "time": time, "date": date, "success": True}
+
+    def set_ntp_server(
+        self, server: str, action: str = "add", dry_run: bool = False,
+    ) -> dict[str, Any]:
+        ntp_cmd = f"server {server}" if action == "add" else f"no server {server}"
+        if dry_run:
+            return {"host": "203.0.113.1", "server": server, "action": action,
+                    "dry_run": True, "commands": ["conf t", "ntp", ntp_cmd, "end"]}
+        return {"host": "203.0.113.1", "server": server, "action": action,
+                "success": True}
+
+    def set_ntp_state(self, enable: bool = True, dry_run: bool = False) -> dict[str, Any]:
+        state = "enabled" if enable else "disabled"
+        ntp_cmd = "no disable" if enable else "disable"
+        if dry_run:
+            return {"host": "203.0.113.1", "state": state, "dry_run": True,
+                    "commands": ["conf t", "ntp", ntp_cmd, "end"]}
+        return {"host": "203.0.113.1", "state": state, "success": True}
+
+    def save_config(self, dry_run: bool = False) -> dict[str, Any]:
+        if dry_run:
+            return {"host": "203.0.113.1", "dry_run": True,
+                    "commands": ["write memory"]}
+        return {"host": "203.0.113.1", "success": True, "saved": True}
+
 
 class MockICXDevice:
     def __init__(self, host: str = "", name: str = "", vendor: str = "ruckus",

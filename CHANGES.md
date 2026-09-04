@@ -7,6 +7,8 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-04 | Time & NTP config | `ruckus_device_timezone_set`, `ruckus_device_clock_set`, `ruckus_device_ntp_server`, `ruckus_device_ntp_control` — configure device clock, timezone, and NTP with `confirm` + `dry_run` |
+| 2026-09-04 | Config save | `ruckus_device_config_save` — persist running-config to startup (`write memory`) with `confirm` + `dry_run` |
 | 2026-09-01 | IPv6 unicast routing + CLI errors | `ruckus_device_ipv6_unicast_routing` tool + detect rejected config commands (no more false `added: true`) |
 | 2026-09-01 | Log noise reduction | Suppress per-request MCP/SSH/access INFO logs; `LOG_LEVEL=DEBUG` restores them |
 | 2026-09-01 | Static IPv4 route | `ruckus_device_ip_route` + `_delete` — add/delete static IPv4 route (next-hop/null0/interface) with `confirm` + `dry_run` |

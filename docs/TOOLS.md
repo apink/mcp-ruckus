@@ -1,6 +1,6 @@
 # Tool Reference — MCP Ruckus
 
-Total **85 tools** (31 vSZ + 45 ICX + 6 inventory + 3 connectivity).
+Total **90 tools** (31 vSZ + 50 ICX + 6 inventory + 3 connectivity).
 
 ## Response envelope
 
@@ -80,7 +80,7 @@ List-returning tools now return a consistent envelope instead of a bare array:
 | `domain_list` | Administration domains |
 | `toggle_wlan` | Enable/disable WLAN (confirm gate) |
 
-## ICX Switch Tools (42)
+## ICX Switch Tools (50)
 
 | Tool | Description |
 |---|---|
@@ -89,6 +89,11 @@ List-returning tools now return a consistent envelope instead of a bare array:
 | `ruckus_device_ssh_status` | SSH server status + sesi aktif (user, source IP) |
 | `ruckus_device_spanning_tree` | STP topology |
 | `ruckus_device_time` | Clock + NTP sync status |
+| `ruckus_device_timezone_set` | Set system timezone (`gmt±HH[:MM]`) (confirm gate) |
+| `ruckus_device_clock_set` | Set system date/time manually (confirm gate) |
+| `ruckus_device_ntp_server` | Add/remove NTP server (confirm gate) |
+| `ruckus_device_ntp_control` | Enable/disable NTP service (confirm gate) |
+| `ruckus_device_config_save` | Save running-config to startup (`write memory`) (confirm gate) |
 | `ruckus_device_info` | Device model, firmware, uptime |
 | `ruckus_device_status` | CPU, memory, temperature |
 | `ruckus_device_interfaces_summary` | All interfaces |

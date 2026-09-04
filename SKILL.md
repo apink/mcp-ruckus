@@ -1,9 +1,9 @@
 ---
 name: ruckus-mcp
-description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 85 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
+description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 90 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
 ---
 
-# Ruckus MCP Skill — 85 tools
+# Ruckus MCP Skill — 90 tools
 
 ## How to Install This Skill
 
@@ -35,7 +35,7 @@ vSZ (31): ap_status, ap_detail, ap_radio_stats, ap_down, client_search, ap_high_
           toggle_wlan, modify_wlan, reboot_ap, disconnect_client, wlan_traffic_stats,
           ap_traffic_stats, zone_traffic_stats, controller_stats
 
-ICX (42): ruckus_device_info, ruckus_device_status,
+ICX (50): ruckus_device_info, ruckus_device_status,
           ruckus_device_interfaces_summary, ruckus_device_interfaces_down,
           ruckus_device_interfaces_errors, ruckus_device_interfaces_stats,
           ruckus_device_ip_addresses, ruckus_device_ip_routes, ruckus_device_ip_route,
