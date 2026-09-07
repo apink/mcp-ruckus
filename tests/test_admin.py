@@ -258,3 +258,35 @@ class TestConfig:
         )
         assert resp.status_code in (302, 303)
         assert calls["args"] == ["systemctl", "restart", "mcp-ruckus"]
+
+    def test_save_write_failure_is_graceful(self, superadmin_client, monkeypatch, tmp_path):
+        self._isolate_env(monkeypatch, tmp_path)
+
+        def boom(updates):
+            raise OSError("read-only file system")
+
+        monkeypatch.setattr(admin, "_write_env", boom)
+        page = superadmin_client.get("/config").text
+        csrf = _csrf_from(page)
+        resp = superadmin_client.post(
+            "/config/save",
+            data={
+                "csrf": csrf,
+                "base_hash": self._base_hash(),
+                "VSZ_HOST": "10.0.0.5",
+                "VSZ_PORT": "8443",
+                "VSZ_USER": "admin",
+                "VSZ_API_VERSION": "v11_1",
+                "VSZ_RATE_LIMIT": "10",
+                "ICX_RATE_LIMIT": "5",
+                "MCP_TRANSPORT": "streamable-http",
+                "MCP_PORT": "8000",
+                "MCP_HOST": "0.0.0.0",
+                "LOG_LEVEL": "INFO",
+                "MCP_MAX_ITEMS": "50",
+                "MCP_ALLOWED_IPS": "",
+            },
+            follow_redirects=False,
+        )
+        assert resp.status_code == 409
+        assert "Could not write .env" in resp.text

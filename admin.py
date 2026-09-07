@@ -1238,7 +1238,12 @@ async def config_save(request: Request) -> Response:
         up, _ = await _mcp_status()
         body = _config_body(user, up, errors=errors, submitted=form)
         return HTMLResponse(_page("Config", body, user), status_code=400)
-    _write_env(updates)
+    try:
+        _write_env(updates)
+    except OSError as exc:
+        up, _ = await _mcp_status()
+        body = _config_body(user, up, errors=[f"Could not write .env: {exc}"])
+        return HTMLResponse(_page("Config", body, user), status_code=409)
     return RedirectResponse("/config?msg=" + _q("Settings saved — restart to apply"), status_code=303)
 
 
@@ -1265,7 +1270,12 @@ async def config_secrets(request: Request) -> Response:
         updates[key] = val
     if not updates:
         return RedirectResponse("/config?msg=" + _q("No secrets changed"), status_code=303)
-    _write_env(updates)
+    try:
+        _write_env(updates)
+    except OSError as exc:
+        up, _ = await _mcp_status()
+        body = _config_body(user, up, errors=[f"Could not write .env: {exc}"])
+        return HTMLResponse(_page("Config", body, user), status_code=409)
     return RedirectResponse("/config?msg=" + _q("Secrets updated — restart to apply"), status_code=303)
 
 

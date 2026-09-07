@@ -15,5 +15,5 @@ COPY server.py security.py db.py admin.py ./
 RUN useradd -m -u 1000 mcpuser && chown -R mcpuser:mcpuser /app
 USER mcpuser
 
-# Default command (SSE transport on port 8000)
-CMD ["python3", "server.py", "--transport", "sse", "--port", "8000"]
+# Default command (env-driven: MCP_TRANSPORT / MCP_PORT / MCP_HOST)
+CMD ["python3", "server.py"]

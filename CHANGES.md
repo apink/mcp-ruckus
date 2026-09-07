@@ -7,6 +7,7 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-07 | Docker: admin GUI service + consistency | `docker-compose.yml` adds `ruckus-admin` (port 8001) sharing `data/` + `inventory/` with the server; `Dockerfile` CMD is env-driven (drops dead `--transport/--port` flags); config editor/restart documented as systemd-only (Docker uses host `.env` + `docker compose restart`) |
 | 2026-09-07 | Admin: editable config + restart | `admin.py` — Config page now edits `.env` (validated non-secret fields, write-only secrets) via read-modify-write with conflict detection + timestamped backup; superadmin-only "Restart MCP" button runs `systemctl restart` on `MCP_SYSTEMD_UNIT` |
 | 2026-09-07 | Admin: tool-scope checkboxes | `admin.py` — key form "Allowed tools" is now a grouped checkbox list (vSZ/ICX/Inventory/Connectivity, 90 tools enumerated from `tools/*.py` via AST) with select-all/none, replacing the free-text textarea |
 | 2026-09-07 | SQLite storage + admin web GUI | Keys + audit moved to SQLite (`data/admin.db`); new separate-process admin GUI (`admin.py`, port 8001) with users/roles, API key management, device inventory CRUD, audit viewer, and `/health` endpoint |

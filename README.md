@@ -105,11 +105,20 @@ cp .env.example .env
 cp inventory/devices.example.yaml inventory/devices.yaml   # only needed for ICX switch tools
 ```
 
-Then build and start the container:
+Then build and start the containers:
 
 ```bash
 docker compose up -d --build
 ```
+
+This starts both processes:
+- MCP server → `http://{SERVER_IP}:8000/mcp`
+- Admin web UI → `http://{SERVER_IP}:8001` (keys, users, inventory, audit)
+
+> In Docker, `.env` is mounted read-only. To change settings, edit `.env` on the
+> host and run `docker compose restart`. The GUI's **Config** editor and
+> **Restart** button target the [systemd deployment](deploy/systemd.md) and are
+> not used inside Docker.
 
 ### Option C — run under systemd (with GUI restart)
 
@@ -122,92 +131,6 @@ Full setup — unit files, polkit rule, and commands — is in
 sudo systemctl enable --now mcp-ruckus        # MCP server
 sudo systemctl enable --now mcp-ruckus-admin  # admin GUI (optional)
 ```
-
-## Configuration
-
-All settings live in a `.env` file (copy of `.env.example`) and, for switches, an inventory file.
-
-### Environment variables
-
-| Variable | What it does | Example |
-|---|---|---|
-| `VSZ_HOST` | IP address of your vSZ/SmartZone controller | `192.0.2.10` |
-| `VSZ_PORT` | HTTPS port of the controller | `8443` |
-| `VSZ_USER` / `VSZ_PASS` | Controller login | - |
-| `VSZ_API_TOKEN` | API token (optional, instead of user/pass) | - |
-| `VSZ_API_VERSION` | Controller API version | `v11_1` |
-| `VSZ_RATE_LIMIT` | Max simultaneous API calls | `10` |
-| `ICX_RATE_LIMIT` | Max simultaneous SSH sessions per switch | `5` |
-| `MCP_TRANSPORT` | How the server talks to the AI: `streamable-http` (default) or `sse` | `streamable-http` |
-| `MCP_HOST` | Which network address to listen on (`0.0.0.0` = all) | `0.0.0.0` |
-| `MCP_PORT` | Which port the server listens on | `8000` |
-| `LOG_LEVEL` | How much logging you want (`DEBUG` also shows framework/SSH/access noise) | `INFO` |
-| `MCP_MAX_ITEMS` | Hard cap on list length returned by list tools | `50` |
-| `MCP_API_KEY` | Fallback single key the AI must send as a Bearer token (see per-client keys below) | - |
-| `MCP_ALLOWED_IPS` | Optional whitelist of IPs allowed to connect | `192.0.2.0/24` |
-| `MCP_DB_PATH` | Where the SQLite DB lives (users, API keys, audit trail) | `./data/admin.db` |
-| `MCP_ADMIN_HOST` | Address the admin web UI listens on (`127.0.0.1` = localhost only) | `127.0.0.1` |
-| `MCP_ADMIN_PORT` | Port the admin web UI listens on | `8001` |
-| `MCP_ADMIN_USER` | Default superadmin username (first boot only) | `admin` |
-| `MCP_ADMIN_INIT_PASS` | Initial superadmin password (first boot only; empty = random, printed once) | - |
-| `MCP_SYSTEMD_UNIT` | systemd unit name the admin GUI restarts via "Restart MCP" (systemd only) | `mcp-ruckus` |
-
-> Don't worry about most of these. The minimum is `VSZ_HOST`, `VSZ_PORT`, and `VSZ_USER`/`VSZ_PASS` (or `VSZ_API_TOKEN`).
-
-### Device inventory (ICX switches)
-
-If you also manage switches, create `inventory/devices.yaml` (copy `inventory/devices.example.yaml` to start). Each switch needs its IP and login. Logins can be written directly or pulled from environment variables with `${VAR_NAME}`:
-
-```yaml
-devices:
-  - host: "192.0.2.10"
-    name: "switch-core-01"
-    vendor: "ruckus"
-    role: "core"
-    location: "datacenter"
-    username: "${ICX_CORE_USER}"
-    password: "${ICX_CORE_PASS}"
-
-  - host: "198.51.100.20"
-    name: "sw-branch"
-    username: "${ICX_BRANCH_USER}"
-    password: "${ICX_BRANCH_PASS}"
-```
-
-### Per-client API keys + audit trail
-
-Instead of one shared `MCP_API_KEY`, you can give **each AI assistant its own key** with its own scope. Keys live in SQLite and are managed through the **admin web UI** (run `python3 admin.py`, then open `http://localhost:8001`):
-
-- **API Keys** page — create a key with a `name` (recorded in the audit log), an `allowed_tools` allowlist (empty = all tools), and an `allow_destructive` toggle (default off, blocks the 22 destructive tools).
-- Keys take effect **immediately** — the MCP server resolves them live, no restart needed.
-- `MCP_API_KEY` still works as a fallback (treated as an unrestricted `"default"` client).
-
-Every tool call is recorded to the SQLite audit log (client name, tool, redacted arguments, outcome, duration) — view and filter it in the admin UI's **Audit** page.
-
-### Admin web UI
-
-The admin GUI is a **separate process** from the MCP server, so it stays up even when the server is down:
-
-```bash
-python3 admin.py        # http://localhost:8001  (default)
-```
-
-Features:
-
-| Page | What it does |
-|---|---|
-| Dashboard | MCP server status (via `/health`), tool/API-key/user/audit counts, DB size |
-| API Keys | Create / edit / regenerate / delete per-client keys |
-| Inventory | Add / edit / delete devices in `inventory/devices.yaml` (applies live) |
-| Audit | Browse and filter the tool-call audit trail |
-| Config | (superadmin) edit `.env` settings, set/rotate secrets (write-only), restart the MCP server |
-| Users | (superadmin) manage admin accounts and roles |
-
-On first boot it creates a default `admin` superadmin and prints a one-time password to the console (set `MCP_ADMIN_INIT_PASS` in `.env` to choose your own); you're forced to change it on first login. Roles are `superadmin`, `operator`, and `viewer`.
-
-> The admin GUI does **not** start/stop the MCP process itself. The **Config** page
-> can restart it via systemd (superadmin only) — see [deploy/systemd.md](deploy/systemd.md).
-> Otherwise restarting stays manual (systemd/Docker); the GUI just reports status.
 
 ## Connect your AI assistant
 
@@ -302,6 +225,90 @@ For the JSON configs above, add a `headers` field:
 ```json
 "headers": { "Authorization": "Bearer YOUR_KEY" }
 ```
+
+## Configuration
+
+All settings live in a `.env` file (copy of `.env.example`) and, for switches, an inventory file.
+
+### Environment variables
+
+| Variable | What it does | Example |
+|---|---|---|
+| `VSZ_HOST` | IP address of your vSZ/SmartZone controller | `192.0.2.10` |
+| `VSZ_PORT` | HTTPS port of the controller | `8443` |
+| `VSZ_USER` / `VSZ_PASS` | Controller login | - |
+| `VSZ_API_TOKEN` | API token (optional, instead of user/pass) | - |
+| `VSZ_API_VERSION` | Controller API version | `v11_1` |
+| `VSZ_RATE_LIMIT` | Max simultaneous API calls | `10` |
+| `ICX_RATE_LIMIT` | Max simultaneous SSH sessions per switch | `5` |
+| `MCP_TRANSPORT` | How the server talks to the AI: `streamable-http` (default) or `sse` | `streamable-http` |
+| `MCP_HOST` | Which network address to listen on (`0.0.0.0` = all) | `0.0.0.0` |
+| `MCP_PORT` | Which port the server listens on | `8000` |
+| `LOG_LEVEL` | How much logging you want (`DEBUG` also shows framework/SSH/access noise) | `INFO` |
+| `MCP_MAX_ITEMS` | Hard cap on list length returned by list tools | `50` |
+| `MCP_API_KEY` | Fallback single key the AI must send as a Bearer token (see per-client keys below) | - |
+| `MCP_ALLOWED_IPS` | Optional whitelist of IPs allowed to connect | `192.0.2.0/24` |
+| `MCP_DB_PATH` | Where the SQLite DB lives (users, API keys, audit trail) | `./data/admin.db` |
+| `MCP_ADMIN_HOST` | Address the admin web UI listens on (`127.0.0.1` = localhost only) | `127.0.0.1` |
+| `MCP_ADMIN_PORT` | Port the admin web UI listens on | `8001` |
+| `MCP_ADMIN_USER` | Default superadmin username (first boot only) | `admin` |
+| `MCP_ADMIN_INIT_PASS` | Initial superadmin password (first boot only; empty = random, printed once) | - |
+| `MCP_SYSTEMD_UNIT` | systemd unit name the admin GUI restarts via "Restart MCP" (systemd only) | `mcp-ruckus` |
+
+> Don't worry about most of these. The minimum is `VSZ_HOST`, `VSZ_PORT`, and `VSZ_USER`/`VSZ_PASS` (or `VSZ_API_TOKEN`).
+
+### Device inventory (ICX switches)
+
+If you also manage switches, create `inventory/devices.yaml` (copy `inventory/devices.example.yaml` to start). Each switch needs its IP and login. Logins can be written directly or pulled from environment variables with `${VAR_NAME}`:
+
+```yaml
+devices:
+  - host: "192.0.2.10"
+    name: "switch-core-01"
+    vendor: "ruckus"
+    role: "core"
+    location: "datacenter"
+    username: "${ICX_CORE_USER}"
+    password: "${ICX_CORE_PASS}"
+
+  - host: "198.51.100.20"
+    name: "sw-branch"
+    username: "${ICX_BRANCH_USER}"
+    password: "${ICX_BRANCH_PASS}"
+```
+
+## Admin web UI
+
+The admin GUI is a **separate process** from the MCP server, so it stays up even when the server is down:
+
+```bash
+python3 admin.py        # http://localhost:8001  (default)
+```
+
+| Page | What it does |
+|---|---|
+| Dashboard | MCP server status (via `/health`), tool/API-key/user/audit counts, DB size |
+| API Keys | Create / edit / regenerate / delete per-client keys |
+| Inventory | Add / edit / delete devices in `inventory/devices.yaml` (applies live) |
+| Audit | Browse and filter the tool-call audit trail |
+| Config | (superadmin) edit `.env` settings, set/rotate secrets (write-only), restart the MCP server |
+| Users | (superadmin) manage admin accounts and roles |
+
+On first boot it creates a default `admin` superadmin and prints a one-time password to the console (set `MCP_ADMIN_INIT_PASS` in `.env` to choose your own); you're forced to change it on first login. Roles are `superadmin`, `operator`, and `viewer`.
+
+> The admin GUI does **not** start/stop the MCP process itself. The **Config** page
+> can restart it via systemd (superadmin only) — see [deploy/systemd.md](deploy/systemd.md).
+> Otherwise restarting stays manual (systemd/Docker); the GUI just reports status.
+
+## Per-client API keys + audit trail
+
+Instead of one shared `MCP_API_KEY`, you can give **each AI assistant its own key** with its own scope. Keys live in SQLite and are managed through the **admin web UI** (see above):
+
+- **API Keys** page — create a key with a `name` (recorded in the audit log), an `allowed_tools` allowlist (empty = all tools), and an `allow_destructive` toggle (default off, blocks the 22 destructive tools).
+- Keys take effect **immediately** — the MCP server resolves them live, no restart needed.
+- `MCP_API_KEY` still works as a fallback (treated as an unrestricted `"default"` client).
+
+Every tool call is recorded to the SQLite audit log (client name, tool, redacted arguments, outcome, duration) — view and filter it in the admin UI's **Audit** page.
 
 ## Safety features
 

@@ -13,15 +13,52 @@ services:
       - PYTHONUNBUFFERED=1
       - TZ=${TZ:-Asia/Jakarta}
     volumes:
-      # Mount .env for credentials
-      - ./inventory/devices.yaml:/app/inventory/devices.yaml:ro
+      # Mount .env for credentials (read-only)
       - ./.env:/app/.env:ro
+      # Directory mount (ro) so the server sees live inventory edits from the admin GUI
+      - ./inventory:/app/inventory:ro
       # Persistent config backups (restore-ready)
       - ./backups:/app/backups
       # Persistent SQLite DB (users, API keys, audit trail)
       - ./data:/app/data
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ruckus-admin:
+    build: .
+    container_name: ruckus-mcp-admin
+    restart: unless-stopped
+    depends_on:
+      ruckus-mcp:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    environment:
+      - MCP_ADMIN_HOST=0.0.0.0
+      - MCP_ADMIN_PORT=8001
+      - MCP_DB_PATH=./data/admin.db
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+      - TZ=${TZ:-Asia/Jakarta}
+    volumes:
+      # .env is read-only in Docker: edit it on the host, then `docker compose restart`.
+      # (The GUI's .env editor + restart button target the systemd deployment.)
+      - ./.env:/app/.env:ro
+      # Directory mount (rw) so inventory CRUD persists via atomic rename.
+      - ./inventory:/app/inventory
+      # Shared SQLite DB with the MCP server.
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health', timeout=3).status==200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3
