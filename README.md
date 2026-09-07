@@ -77,8 +77,8 @@ cd mcp-ruckus
 cp .env.example .env
 cp inventory/devices.example.yaml inventory/devices.yaml   # only needed for ICX switch tools
 
-# 3. Edit .env with your controller IP + credentials
-#    Edit inventory/devices.yaml with your switches (if you have ICX)
+# 3. Edit .env with your controller IP + credentials, and set MCP_API_KEY
+#    (the MCP endpoint requires a key). Edit inventory/devices.yaml for ICX switches.
 
 # 4. Install
 python3 -m venv venv && source venv/bin/activate
@@ -89,6 +89,11 @@ python3 server.py
 ```
 
 When it starts, the server listens on `0.0.0.0:8000` and serves Streamable HTTP at `http://{SERVER_IP}:8000/mcp` (use `localhost` for the same machine; SSE is also available at `/sse` if you set `MCP_TRANSPORT=sse`).
+
+> The MCP endpoint **requires an API key** (fail-closed). Simplest path: set
+> `MCP_API_KEY` in `.env` and send it as a Bearer token (see
+> [Connect your AI assistant](#connect-your-ai-assistant)), or create a per-client
+> key in the admin GUI. Without a key, tool calls return `401 Unauthorized`.
 
 Optionally start the admin web UI (separate process) to manage API keys, users, inventory, and the audit trail:
 
@@ -211,9 +216,11 @@ Or use a project-scoped `.mcp.json` (shareable via git):
 
 Using SSE instead? Use `--transport sse` with the `/sse` URL (and `"type": "sse"` in `.mcp.json`).
 
-### If you set `MCP_API_KEY`
+### Send your API key (required)
 
-If you enabled `MCP_API_KEY`, the assistant must send it as a Bearer header. Example for Claude Code:
+The MCP endpoint requires a Bearer token on every request. Send the key you
+created — either `MCP_API_KEY` from `.env`, or a per-client key from the admin
+GUI — as an `Authorization` header. Example for Claude Code:
 
 ```bash
 claude mcp add --transport http ruckus http://{SERVER_IP}:8000/mcp \
@@ -255,7 +262,7 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 | `MCP_ADMIN_INIT_PASS` | Initial superadmin password (first boot only; empty = random, printed once) | - |
 | `MCP_SYSTEMD_UNIT` | systemd unit name the admin GUI restarts via "Restart MCP" (systemd only) | `mcp-ruckus` |
 
-> Don't worry about most of these. The minimum is `VSZ_HOST`, `VSZ_PORT`, and `VSZ_USER`/`VSZ_PASS` (or `VSZ_API_TOKEN`).
+> Don't worry about most of these. The minimum is `VSZ_HOST`, `VSZ_PORT`, and `VSZ_USER`/`VSZ_PASS` (or `VSZ_API_TOKEN`) — plus `MCP_API_KEY` (or a per-client key), because the endpoint requires authentication.
 
 ### Device inventory (ICX switches)
 
@@ -312,6 +319,7 @@ Every tool call is recorded to the SQLite audit log (client name, tool, redacted
 
 ## Safety features
 
+- The MCP endpoint requires a Bearer API key by default (fail-closed) — no open access.
 - Tools that change things require `confirm=True` — without it they refuse and do nothing.
 - Switch config changes support `dry_run=True`, so you can preview the command before it runs.
 - Config backups store metadata only by default; including the actual config is opt-in.

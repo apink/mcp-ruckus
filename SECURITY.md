@@ -46,6 +46,7 @@ Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/swit
 - Health check endpoint for monitoring
 
 ### Per-Client API Keys
+- Authentication is required by default (fail-closed): every request must carry a Bearer token; `/health` stays open for monitoring. With no keys configured, the endpoint rejects all tool calls with `401` and logs a startup warning.
 - Each AI assistant (or team) gets its own key, stored in SQLite (`data/admin.db`, gitignored) and managed via the admin GUI (`python3 admin.py`)
 - Per-key `allowed_tools` allowlist and `allow_destructive` gate (destructive tools blocked by default)
 - `MCP_API_KEY` remains as a fallback single key (unrestricted `"default"` client)
@@ -56,7 +57,7 @@ Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/swit
 - Every tool call is recorded to the SQLite `audit_log` table (`data/admin.db`)
 - Each record: timestamp, client name, client IP, tool, redacted arguments, outcome, duration, destructive flag
 - Sensitive argument values (passwords, tokens, keys) are redacted; the API key itself is never logged
-- Audit logging runs for all clients, including unauthenticated (`anonymous`) and per-key clients
+- Audit logging runs for all authenticated clients (per-key and `MCP_API_KEY` fallback)
 - Browse and filter the audit trail in the admin GUI (`/audit`)
 
 ### Admin GUI Config & Restart
@@ -77,7 +78,7 @@ All dependencies are regularly updated and audited.
 
 ## Security Testing
 
-- Automated testing with pytest (346 tests, 19 test files)
+- Automated testing with pytest (347 tests, 19 test files)
 - Input validation coverage: 100%
 - Error handling verification
 - Session management testing

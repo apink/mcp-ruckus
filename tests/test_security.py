@@ -69,13 +69,24 @@ class TestSecurityMiddleware:
     def test_init(self):
         mw = SecurityMiddleware(_noop_app, self._registry(), "fallback", [ipaddress.ip_network("10.0.0.0/8")])
         assert mw.fallback_key == "fallback"
-        assert mw._enforce_key is True
         assert mw._enforce_ip is True
 
-    def test_no_config(self):
-        mw = SecurityMiddleware(_noop_app, _FakeStore(), "", [])
-        assert mw._enforce_key is False
-        assert mw._enforce_ip is False
+    def test_no_config_blocks_access(self):
+        async def run():
+            mw = SecurityMiddleware(_noop_app, _FakeStore(), "", [])
+            send = await self._call(mw, _http_scope([]))
+            assert send.status == 401
+
+        asyncio.run(run())
+
+    def test_no_config_message_hint(self):
+        async def run():
+            mw = SecurityMiddleware(_noop_app, _FakeStore(), "", [])
+            send = await self._call(mw, _http_scope([(b"authorization", b"Bearer whatever")]))
+            assert send.status == 401
+            assert b"no API keys configured" in send.body
+
+        asyncio.run(run())
 
     async def _call(self, mw, scope):
         send = _CaptureSend()

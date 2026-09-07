@@ -117,9 +117,10 @@ class SecurityMiddleware:
     """ASGI middleware enforcing per-client API keys and IP allowlist.
 
     Pure ASGI callable — streaming-safe (SSE, chunked HTTP).
-    Resolves the Bearer token against the SQLite-backed key registry (with the
-    MCP_API_KEY fallback), then stores the identity for AuditMiddleware.
-    The ``/health`` route is exempt so external monitors can poll it.
+    Authentication is required by default (fail-closed): every request must
+    carry a Bearer token that resolves against the SQLite-backed key registry
+    (with the MCP_API_KEY fallback). The ``/health`` route is exempt so
+    external monitors can poll it.
     """
 
     EXEMPT_PREFIXES = ("/health",)
@@ -136,7 +137,6 @@ class SecurityMiddleware:
         self.fallback_key = fallback_key
         self.allowed_networks = allowed_networks
         self._enforce_ip = bool(allowed_networks)
-        self._enforce_key = keystore.has_keys() or bool(fallback_key)
 
     async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
         if scope["type"] != "http":
@@ -166,22 +166,28 @@ class SecurityMiddleware:
                 return
         set_client_ip(client_host)
 
-        identity: ClientIdentity | None = None
-        if self._enforce_key:
-            headers = {k.decode(): v.decode() for k, v in scope.get("headers", [])}
-            auth = headers.get("authorization", "")
-            if not auth.startswith("Bearer "):
-                await self._respond(send, 401, "Unauthorized: missing Bearer token")
-                return
-            token = auth[7:].strip()
-            identity = self.keystore.resolve(token)
-            if identity is None and self.fallback_key and token == self.fallback_key:
-                identity = ClientIdentity(
-                    name="default", key=token, allow_destructive=True
+        headers = {k.decode(): v.decode() for k, v in scope.get("headers", [])}
+        auth = headers.get("authorization", "")
+        if not auth.startswith("Bearer "):
+            await self._respond(send, 401, "Unauthorized: missing Bearer token")
+            return
+        token = auth[7:].strip()
+        identity: ClientIdentity | None = self.keystore.resolve(token)
+        if identity is None and self.fallback_key and token == self.fallback_key:
+            identity = ClientIdentity(
+                name="default", key=token, allow_destructive=True
+            )
+        if identity is None:
+            if not self.keystore.has_keys() and not self.fallback_key:
+                await self._respond(
+                    send,
+                    401,
+                    "Unauthorized: no API keys configured — create one via the "
+                    "admin GUI or set MCP_API_KEY",
                 )
-            if identity is None:
+            else:
                 await self._respond(send, 401, "Unauthorized: invalid API key")
-                return
+            return
         set_client_identity(identity)
 
         await self.app(scope, receive, send)
@@ -218,20 +224,23 @@ def main() -> None:
     # Audit middleware records every tool call (identity-aware, SQLite-backed).
     mcp.add_middleware(AuditMiddleware(AuditLogger()))
 
-    if keystore.has_keys() or api_key or allowed:
-        logger.info(
-            "Security: api_keys=%d, fallback_key=%s, allowed_networks=%d entries",
-            db.count_api_keys(),
-            "yes" if api_key else "no",
-            len(allowed),
+    logger.info(
+        "Security: api_keys=%d, fallback_key=%s, allowed_networks=%d entries",
+        db.count_api_keys(),
+        "yes" if api_key else "no",
+        len(allowed),
+    )
+    if not keystore.has_keys() and not api_key:
+        logger.warning(
+            "No API keys or MCP_API_KEY configured — the MCP endpoint is locked. "
+            "Create a key via the admin GUI (admin.py) or set MCP_API_KEY."
         )
 
     # Build the ASGI app (SSE or streamable-http)
     app = mcp.http_app(transport=transport)
 
-    # Wrap with security middleware if configured
-    if keystore.has_keys() or api_key or allowed:
-        app = SecurityMiddleware(app, keystore, api_key, allowed)
+    # Authentication is required by default (fail-closed).
+    app = SecurityMiddleware(app, keystore, api_key, allowed)
 
     logger.info("Starting Ruckus MCP (%s) on %s:%d", transport, host, port)
 
