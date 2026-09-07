@@ -26,9 +26,10 @@ All user inputs are validated before processing:
 - VLAN IDs: 1-4094 range
 
 ### Credential Management
-- No hardcoded credentials in source code
+- No controller/device credentials in source code
 - vSZ: credentials from `.env`; ICX: from `inventory/devices.yaml` (supports `${ENV_VAR}` substitution)
 - Admin GUI accounts and per-client API keys: stored in SQLite (`data/admin.db`) with scrypt-hashed passwords
+- Admin GUI default superadmin is `admin` / `digantiYA_30` and is forced to change its password on first login (override with `MCP_ADMIN_INIT_PASS`)
 - `.env`, `inventory/devices.yaml`, and `data/` are gitignored by default
 - Implementation rules: [CONTRIBUTING.md §S4](.github/CONTRIBUTING.md)
 
@@ -78,7 +79,7 @@ All dependencies are regularly updated and audited.
 
 ## Security Testing
 
-- Automated testing with pytest (347 tests, 19 test files)
+- Automated testing with pytest (348 tests, 19 test files)
 - Input validation coverage: 100%
 - Error handling verification
 - Session management testing

@@ -22,11 +22,18 @@ class TestDefaultAdmin:
     def test_creates_superadmin_once(self):
         user, pw = db.ensure_default_admin()
         assert user == "admin"
-        assert pw
+        assert pw == db.DEFAULT_ADMIN_PASSWORD
         admin = db.get_user_by_username("admin")
         assert admin["role"] == "superadmin"
         assert admin["must_change_password"] == 1
         assert db.ensure_default_admin() is None
+
+    def test_init_pass_env_overrides_default(self, monkeypatch):
+        monkeypatch.setenv("MCP_ADMIN_INIT_PASS", "custom-init-pass")
+        user, pw = db.ensure_default_admin()
+        assert user == "admin"
+        assert pw == "custom-init-pass"
+        assert db.verify_password("custom-init-pass", db.get_user_by_username("admin")["password_hash"])
 
 
 class TestUsers:

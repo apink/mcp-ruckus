@@ -66,51 +66,36 @@ You don't need to be a network expert — if you have the IPs and credentials, t
 
 ## Quick start
 
-### Option A — run locally (Python)
+### Prepare your config files
 
 ```bash
-# 1. Get the code
 git clone https://github.com/apink/mcp-ruckus.git
 cd mcp-ruckus
 
-# 2. Create your config files from the templates
 cp .env.example .env
 cp inventory/devices.example.yaml inventory/devices.yaml   # only needed for ICX switch tools
-
-# 3. Edit .env with your controller IP + credentials, and set MCP_API_KEY
-#    (the MCP endpoint requires a key). Edit inventory/devices.yaml for ICX switches.
-
-# 4. Install
-python3 -m venv venv && source venv/bin/activate
-pip install -e .
-
-# 5. Run
-python3 server.py
 ```
 
-When it starts, the server listens on `0.0.0.0:8000` and serves Streamable HTTP at `http://{SERVER_IP}:8000/mcp` (use `localhost` for the same machine; SSE is also available at `/sse` if you set `MCP_TRANSPORT=sse`).
+Edit `.env`:
+
+| Key | What to set |
+|---|---|
+| `VSZ_HOST` / `VSZ_PORT` / `VSZ_USER` / `VSZ_PASS` (or `VSZ_API_TOKEN`) | Your controller address + login |
+| `MCP_API_KEY` | **Required** — the AI sends this as a Bearer token |
+| `MCP_ADMIN_INIT_PASS` | Initial admin GUI password (default `digantiYA_30`; you're forced to change it on first login) |
+
+Then edit `inventory/devices.yaml` with your switches if you use ICX.
 
 > The MCP endpoint **requires an API key** (fail-closed). Simplest path: set
 > `MCP_API_KEY` in `.env` and send it as a Bearer token (see
 > [Connect your AI assistant](#connect-your-ai-assistant)), or create a per-client
 > key in the admin GUI. Without a key, tool calls return `401 Unauthorized`.
 
-Optionally start the admin web UI (separate process) to manage API keys, users, inventory, and the audit trail:
+The MCP server listens on `0.0.0.0:8000` and serves Streamable HTTP at
+`http://{SERVER_IP}:8000/mcp` (SSE is also available at `/sse` if you set
+`MCP_TRANSPORT=sse`).
 
-```bash
-python3 admin.py     # http://localhost:8001
-```
-
-### Option B — run with Docker
-
-Create your config files first (same as Option A, step 2):
-
-```bash
-cp .env.example .env
-cp inventory/devices.example.yaml inventory/devices.yaml   # only needed for ICX switch tools
-```
-
-Then build and start the containers:
+### Option A — run with Docker
 
 ```bash
 docker compose up -d --build
@@ -125,7 +110,7 @@ This starts both processes:
 > **Restart** button target the [systemd deployment](deploy/systemd.md) and are
 > not used inside Docker.
 
-### Option C — run under systemd (with GUI restart)
+### Option B — run under systemd (with GUI restart)
 
 To use the admin GUI's **Restart MCP** button, run the server as a systemd unit
 and grant the GUI's OS user permission to restart only that unit (polkit rule).
@@ -136,6 +121,9 @@ Full setup — unit files, polkit rule, and commands — is in
 sudo systemctl enable --now mcp-ruckus        # MCP server
 sudo systemctl enable --now mcp-ruckus-admin  # admin GUI (optional)
 ```
+
+> For local development (running `python3 server.py` / `python3 admin.py`
+> directly), see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ## Connect your AI assistant
 
@@ -259,7 +247,7 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 | `MCP_ADMIN_HOST` | Address the admin web UI listens on (`127.0.0.1` = localhost only) | `127.0.0.1` |
 | `MCP_ADMIN_PORT` | Port the admin web UI listens on | `8001` |
 | `MCP_ADMIN_USER` | Default superadmin username (first boot only) | `admin` |
-| `MCP_ADMIN_INIT_PASS` | Initial superadmin password (first boot only; empty = random, printed once) | - |
+| `MCP_ADMIN_INIT_PASS` | Initial superadmin password (first boot only; defaults to `digantiYA_30`, change on first login) | `digantiYA_30` |
 | `MCP_SYSTEMD_UNIT` | systemd unit name the admin GUI restarts via "Restart MCP" (systemd only) | `mcp-ruckus` |
 
 > Don't worry about most of these. The minimum is `VSZ_HOST`, `VSZ_PORT`, and `VSZ_USER`/`VSZ_PASS` (or `VSZ_API_TOKEN`) — plus `MCP_API_KEY` (or a per-client key), because the endpoint requires authentication.
@@ -301,7 +289,7 @@ python3 admin.py        # http://localhost:8001  (default)
 | Config | (superadmin) edit `.env` settings, set/rotate secrets (write-only), restart the MCP server |
 | Users | (superadmin) manage admin accounts and roles |
 
-On first boot it creates a default `admin` superadmin and prints a one-time password to the console (set `MCP_ADMIN_INIT_PASS` in `.env` to choose your own); you're forced to change it on first login. Roles are `superadmin`, `operator`, and `viewer`.
+On first boot it creates a default `admin` superadmin with password `digantiYA_30` (or whatever you set in `MCP_ADMIN_INIT_PASS`); you're forced to change it on first login. Roles are `superadmin`, `operator`, and `viewer`.
 
 > The admin GUI does **not** start/stop the MCP process itself. The **Config** page
 > can restart it via systemd (superadmin only) — see [deploy/systemd.md](deploy/systemd.md).
@@ -323,7 +311,7 @@ Every tool call is recorded to the SQLite audit log (client name, tool, redacted
 - Tools that change things require `confirm=True` — without it they refuse and do nothing.
 - Switch config changes support `dry_run=True`, so you can preview the command before it runs.
 - Config backups store metadata only by default; including the actual config is opt-in.
-- Passwords are never hardcoded in the repo; `.env`, `devices.yaml`, and `data/` are gitignored.
+- No real controller/device passwords are stored in the repo; the admin GUI ships a default initial password (`digantiYA_30`) you must change on first login. `.env`, `devices.yaml`, and `data/` are gitignored.
 - Each client can have its own API key with an `allowed_tools` allowlist and a destructive-tool gate.
 - Every tool call is recorded to the SQLite audit log (client, tool, redacted args, outcome, duration).
 

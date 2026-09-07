@@ -7,6 +7,8 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-07 | Default admin GUI password | `db.py` — `ensure_default_admin()` now falls back to `DEFAULT_ADMIN_PASSWORD = "digantiYA_30"` (instead of a random password) when `MCP_ADMIN_INIT_PASS` is unset; still `must_change_password=1` on first login; `.env.example` ships the default |
+| 2026-09-07 | README: Docker + systemd quick start | `README.md` — quick start now Docker (Option A) + systemd (Option B) only; shared "prepare config files" step; local `python3` dev run moved to `.github/CONTRIBUTING.md` |
 | 2026-09-07 | Auth required by default (fail-closed) | `server.py` — `SecurityMiddleware` now always requires a Bearer API key (no open access when no keys exist); `/health` stays exempt; startup logs a warning + 401 body gives a setup hint when no key is configured |
 | 2026-09-07 | Docker: admin GUI service + consistency | `docker-compose.yml` adds `ruckus-admin` (port 8001) sharing `data/` + `inventory/` with the server; `Dockerfile` CMD is env-driven (drops dead `--transport/--port` flags); config editor/restart documented as systemd-only (Docker uses host `.env` + `docker compose restart`) |
 | 2026-09-07 | Admin: editable config + restart | `admin.py` — Config page now edits `.env` (validated non-secret fields, write-only secrets) via read-modify-write with conflict detection + timestamped backup; superadmin-only "Restart MCP" button runs `systemctl restart` on `MCP_SYSTEMD_UNIT` |

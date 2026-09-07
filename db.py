@@ -24,6 +24,8 @@ from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent
 
+DEFAULT_ADMIN_PASSWORD = "digantiYA_30"
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,15 +117,18 @@ def verify_password(password: str, stored: str) -> bool:
 def ensure_default_admin() -> tuple[str, str] | None:
     """Create the default super admin if no user exists.
 
-    Returns ``(username, password)`` when created (so the caller can print the
-    one-time password), otherwise ``None``.
+    Uses ``MCP_ADMIN_INIT_PASS`` if set, otherwise the known default
+    ``DEFAULT_ADMIN_PASSWORD`` (``digantiYA_30``); the account is created with
+    ``must_change_password=1`` so the password is changed on first login.
+    Returns ``(username, password)`` when created (so the caller can print it),
+    otherwise ``None``.
     """
     with connect() as conn:
         count = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
         if count:
             return None
         username = os.getenv("MCP_ADMIN_USER", "admin").strip() or "admin"
-        password = os.getenv("MCP_ADMIN_INIT_PASS", "").strip() or secrets.token_urlsafe(12)
+        password = os.getenv("MCP_ADMIN_INIT_PASS", "").strip() or DEFAULT_ADMIN_PASSWORD
         conn.execute(
             "INSERT INTO users (username, password_hash, role, must_change_password, created_at) "
             "VALUES (?, ?, 'superadmin', 1, ?)",

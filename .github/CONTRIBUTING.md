@@ -5,6 +5,24 @@ Focus: **Security, Reliability, Code Cleanliness**.
 
 ---
 
+## LOCAL DEVELOPMENT RUN
+
+For local development (not Docker/systemd), run both processes directly:
+
+```bash
+python3 -m venv venv && source venv/bin/activate
+pip install -e .
+
+cp .env.example .env          # then edit credentials + MCP_API_KEY
+python3 server.py             # MCP server on :8000
+python3 admin.py              # admin GUI on :8001 (default admin / digantiYA_30)
+```
+
+The MCP endpoint requires a Bearer API key (see the main [README](../README.md)).
+For production, use Docker or systemd as described there.
+
+---
+
 ## RUNNING TESTS
 
 ```bash
