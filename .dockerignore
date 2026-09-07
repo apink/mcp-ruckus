@@ -13,6 +13,7 @@ build/
 .env.local
 inventory/devices.yaml
 backups/
+data/
 
 # Dev tools
 .venv/

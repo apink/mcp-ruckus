@@ -8,8 +8,11 @@ Supported transports (MCP_TRANSPORT env var):
   sse              — Server-Sent Events (legacy, still supported)
 
 Security (HTTP transports only):
-  MCP_API_KEY      — Bearer token required on every request
+  MCP_API_KEY      — Bearer token required on every request (fallback single key)
   MCP_ALLOWED_IPS  — Comma-separated CIDR allowlist for client IPs
+  SQLite (data/admin.db) — per-client API keys (name, allowlist, destructive) + audit
+Health:
+  GET /health      — public JSON status (used by the admin GUI + external monitors)
 """
 from __future__ import annotations
 
@@ -17,12 +20,23 @@ import ipaddress
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
 import uvicorn
 from fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
+import db
+from security import (
+    AuditLogger,
+    AuditMiddleware,
+    ClientIdentity,
+    KeyStore,
+    set_client_identity,
+    set_client_ip,
+)
 from tools import register_all_tools
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -59,6 +73,27 @@ if os.getenv("LOG_LEVEL", "INFO").upper() != "DEBUG":
 mcp = FastMCP("Ruckus MCP")
 register_all_tools(mcp)
 
+_START_TIME = time.time()
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Any) -> JSONResponse:
+    """Public JSON status endpoint (no API key required)."""
+    try:
+        tool_count = len(await mcp.list_tools())
+    except Exception:  # noqa: BLE001 - never fail health on a listing error
+        tool_count = 0
+    info = db.health_info()
+    return JSONResponse(
+        {
+            "status": "ok",
+            "service": "mcp-ruckus",
+            "uptime_s": round(time.time() - _START_TIME, 1),
+            "tool_count": tool_count,
+            **info,
+        }
+    )
+
 
 # ── Security Middleware ─────────────────────────────────────────────
 
@@ -79,26 +114,44 @@ def _parse_allowed_networks() -> list[ipaddress.IPv4Network | ipaddress.IPv6Netw
 
 
 class SecurityMiddleware:
-    """ASGI middleware enforcing API-key and IP-allowlist.
+    """ASGI middleware enforcing per-client API keys and IP allowlist.
 
     Pure ASGI callable — streaming-safe (SSE, chunked HTTP).
+    Resolves the Bearer token against the SQLite-backed key registry (with the
+    MCP_API_KEY fallback), then stores the identity for AuditMiddleware.
+    The ``/health`` route is exempt so external monitors can poll it.
     """
 
-    def __init__(self, app: Any, api_key: str, allowed_networks: list) -> None:
+    EXEMPT_PREFIXES = ("/health",)
+
+    def __init__(
+        self,
+        app: Any,
+        keystore: KeyStore,
+        fallback_key: str,
+        allowed_networks: list,
+    ) -> None:
         self.app = app
-        self.api_key = api_key
+        self.keystore = keystore
+        self.fallback_key = fallback_key
         self.allowed_networks = allowed_networks
         self._enforce_ip = bool(allowed_networks)
-        self._enforce_key = bool(api_key)
+        self._enforce_key = keystore.has_keys() or bool(fallback_key)
 
     async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
+        path = scope.get("path", "")
+        if path.startswith(self.EXEMPT_PREFIXES):
+            await self.app(scope, receive, send)
+            return
+
+        client_host: str | None = None
         if self._enforce_ip:
             client = scope.get("client")
-            client_host: str | None = client[0] if client else None
+            client_host = client[0] if client else None
             if not client_host:
                 await self._respond(send, 403, "Forbidden: no client IP")
                 return
@@ -111,16 +164,25 @@ class SecurityMiddleware:
             except ValueError:
                 await self._respond(send, 403, "Forbidden: invalid client IP")
                 return
+        set_client_ip(client_host)
 
+        identity: ClientIdentity | None = None
         if self._enforce_key:
             headers = {k.decode(): v.decode() for k, v in scope.get("headers", [])}
             auth = headers.get("authorization", "")
             if not auth.startswith("Bearer "):
                 await self._respond(send, 401, "Unauthorized: missing Bearer token")
                 return
-            if auth[7:].strip() != self.api_key:
+            token = auth[7:].strip()
+            identity = self.keystore.resolve(token)
+            if identity is None and self.fallback_key and token == self.fallback_key:
+                identity = ClientIdentity(
+                    name="default", key=token, allow_destructive=True
+                )
+            if identity is None:
                 await self._respond(send, 401, "Unauthorized: invalid API key")
                 return
+        set_client_identity(identity)
 
         await self.app(scope, receive, send)
 
@@ -151,10 +213,15 @@ def main() -> None:
 
     api_key = os.getenv("MCP_API_KEY", "").strip()
     allowed = _parse_allowed_networks()
+    keystore = KeyStore()
 
-    if api_key or allowed:
+    # Audit middleware records every tool call (identity-aware, SQLite-backed).
+    mcp.add_middleware(AuditMiddleware(AuditLogger()))
+
+    if keystore.has_keys() or api_key or allowed:
         logger.info(
-            "Security: api_key=%s, allowed_networks=%d entries",
+            "Security: api_keys=%d, fallback_key=%s, allowed_networks=%d entries",
+            db.count_api_keys(),
             "yes" if api_key else "no",
             len(allowed),
         )
@@ -163,8 +230,8 @@ def main() -> None:
     app = mcp.http_app(transport=transport)
 
     # Wrap with security middleware if configured
-    if api_key or allowed:
-        app = SecurityMiddleware(app, api_key, allowed)
+    if keystore.has_keys() or api_key or allowed:
+        app = SecurityMiddleware(app, keystore, api_key, allowed)
 
     logger.info("Starting Ruckus MCP (%s) on %s:%d", transport, host, port)
 

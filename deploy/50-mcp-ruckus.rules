@@ -1,0 +1,7 @@
+polkit.addRule(function (action, subject) {
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+        subject.user === "mcp" &&
+        action.lookup("unit") === "mcp-ruckus.service") {
+        return polkit.Result.YES;
+    }
+});

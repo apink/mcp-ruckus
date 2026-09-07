@@ -7,6 +7,10 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-07 | Admin: editable config + restart | `admin.py` — Config page now edits `.env` (validated non-secret fields, write-only secrets) via read-modify-write with conflict detection + timestamped backup; superadmin-only "Restart MCP" button runs `systemctl restart` on `MCP_SYSTEMD_UNIT` |
+| 2026-09-07 | Admin: tool-scope checkboxes | `admin.py` — key form "Allowed tools" is now a grouped checkbox list (vSZ/ICX/Inventory/Connectivity, 90 tools enumerated from `tools/*.py` via AST) with select-all/none, replacing the free-text textarea |
+| 2026-09-07 | SQLite storage + admin web GUI | Keys + audit moved to SQLite (`data/admin.db`); new separate-process admin GUI (`admin.py`, port 8001) with users/roles, API key management, device inventory CRUD, audit viewer, and `/health` endpoint |
+| 2026-09-07 | Per-client API keys + audit trail | `security.py` — per-client keys (`inventory/api_keys.yaml`) with `allowed_tools` allowlist + `allow_destructive` gate; JSON Lines audit trail (`logs/audit.jsonl`) of every tool call |
 | 2026-09-04 | Time & NTP config | `ruckus_device_timezone_set`, `ruckus_device_clock_set`, `ruckus_device_ntp_server`, `ruckus_device_ntp_control` — configure device clock, timezone, and NTP with `confirm` + `dry_run` |
 | 2026-09-04 | Config save | `ruckus_device_config_save` — persist running-config to startup (`write memory`) with `confirm` + `dry_run` |
 | 2026-09-01 | IPv6 unicast routing + CLI errors | `ruckus_device_ipv6_unicast_routing` tool + detect rejected config commands (no more false `added: true`) |
@@ -29,6 +33,59 @@ Format: [ISO date] — Short description + technical details.
 | 2026-08-05 | Zone tree + 802.1X | `get_zones()` rewrite, `create_wlan` 802.1X, RADIUS |
 
 Complete technical details below.
+
+---
+
+## 2026-09-07 — SQLite Storage + Admin Web GUI
+
+### SQLite storage (refactor)
+- **Files:** `db.py` (new), `security.py`, `server.py`
+- **What:** per-client API keys and the audit trail moved out of YAML/JSONL into SQLite (`data/admin.db`, gitignored)
+- **Schema:** `users` (role + scrypt-hashed password + `must_change_password`), `api_keys` (`name`, `key`, `allowed_tools` JSON, `allow_destructive`), `audit_log` (`ts`, `client`, `client_ip`, `tool`, `args`, `outcome`, `duration_ms`, `destructive`, `reason`)
+- **Concurrency:** WAL mode + busy timeout — the MCP server and admin GUI are separate processes sharing the same DB
+- **Live keys:** `KeyStore` resolves the Bearer token via a per-request DB lookup, so key edits apply immediately (no reload)
+- **MCP `/health`:** public JSON endpoint (tool count, uptime, user/key/audit counts, DB size) for the admin GUI + external monitors
+
+### Admin web GUI (new feature, separate process)
+- **File:** `admin.py` (new) — Starlette app on `MCP_ADMIN_HOST:PORT` (default `127.0.0.1:8001`)
+- **Design (option B):** runs independently of the MCP server; reports status via `/health` but does not start/stop it
+- **Pages:** Dashboard, API Keys, Inventory, Audit, Config (read-only, secrets masked), Users, Change password
+- **Auth:** HMAC-signed session cookie + per-form CSRF; roles `superadmin` > `operator` > `viewer`
+- **Default admin:** created on first boot (`MCP_ADMIN_USER` / `MCP_ADMIN_INIT_PASS`, else random password printed once), forced password change on first login
+- **Inventory CRUD:** atomic write to `inventory/devices.yaml` (read live by the MCP server, no restart)
+
+### Config
+- `.env.example`: added `MCP_DB_PATH`, `MCP_ADMIN_HOST`, `MCP_ADMIN_PORT`, `MCP_ADMIN_USER`, `MCP_ADMIN_INIT_PASS`
+- `.gitignore` / `.dockerignore`: `data/` replaces `inventory/api_keys.yaml` + `logs/`
+- `kilo.json`: deny read/edit of `data/admin.db` + `data/admin-secret.key`
+
+### Tests
+- **339 tests pass** (was 311): +`tests/test_db.py` (14), +`tests/test_admin.py` (12), `tests/test_audit.py`/`tests/test_security.py` rewritten for SQLite-backed `KeyStore`/`AuditLogger`
+- `ruff check .` clean
+
+---
+
+## 2026-09-07 — Per-Client API Keys + Audit Trail
+
+### Per-client API keys (enhancement)
+- **Files:** `security.py` (new), `server.py`, `inventory/api_keys.example.yaml` (new)
+- **What:** replace the single global `MCP_API_KEY` with a per-client key registry
+- **Config:** `inventory/api_keys.yaml` (gitignored) — each key has `name`, `allowed_tools` (empty = all), `allow_destructive` (default false); keys support `${ENV_VAR}` substitution (same pattern as `devices.yaml`)
+- **Enforcement:** `SecurityMiddleware` resolves the Bearer token to a `ClientIdentity`; `AuditMiddleware` (FastMCP `on_call_tool`) rejects calls outside the key's `allowed_tools` or destructive tools without `allow_destructive`
+- **Fallback:** `MCP_API_KEY` still works — treated as an unrestricted `"default"` client (preserves existing deployments)
+- **Tool count:** unchanged (90 tools); destructive count unchanged (22)
+
+### Audit trail (enhancement)
+- **Files:** `security.py` (`AuditLogger`, `AuditMiddleware`), `server.py`
+- **What:** append-only JSON Lines audit log at `logs/audit.jsonl` (gitignored)
+- **Recorded per tool call:** timestamp, client name, client IP, tool, redacted arguments, outcome (`ok`/`error`/`denied`/`exception`), duration_ms, destructive flag
+- **Redaction:** sensitive argument keys (`pass`/`secret`/`token`/`key`) redacted; long strings truncated; the API key itself is never logged
+- **Coverage:** all 90 tools, including unauthenticated clients (logged as `anonymous`)
+- **`DESTRUCTIVE_TOOLS`:** canonical frozenset in `security.py`, kept in sync with `DOCS_SAFETY.md`
+
+### Tests
+- **311 tests pass** (was 291): +20 (`tests/test_audit.py` new — 13 tests; `tests/test_security.py` updated — 7 tests)
+- `ruff check .` clean
 
 ---
 
@@ -133,7 +190,7 @@ Complete technical details below.
 - **Note**: CHANGES.md historical entries left unchanged (per project rule: no deletion)
 
 ### Environment fixes (fix)
-- **Broken venv**: Interpreter path pointed to non-existent `/home/apink/code/mcp-ruckus/venv` → recreated at correct path `/home/apink/code-dev/mcp-ruckus/venv`
+- **Broken venv**: Interpreter path pointed to a non-existent venv path → recreated at the correct project venv path
 - **Missing test dependency**: Added `pytest-asyncio>=0.24.0` to dev dependencies in `pyproject.toml`
 - **Editable install**: Fixed hatchling configuration for namespace packages (`adapters`, `inventory`, `models`, `tools`)
 - **Project metadata**: Updated `pyproject.toml` URLs from placeholder `your-org` to actual `apink/mcp-ruckus`
@@ -326,15 +383,15 @@ Complete technical details below.
 
 ```yaml
 devices:
-  - host: 10.0.0.50
+  - host: 192.0.2.50
     name: icx-core
     username: ${ICX_CORE_USER}    # env var reference
     password: ${ICX_CORE_PASS}
 
-  - host: 10.0.0.51
+  - host: 198.51.100.51
     name: icx-dist-01
     username: admin-dist          # literal value
-    password: dist-pass
+    password: CHANGE_ME           # literal value (prefer env vars)
 ```
 
 ### Doc Update

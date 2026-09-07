@@ -1,20 +1,29 @@
 {
+  "$schema": "https://app.kilo.ai/config.json",
   "permission": {
     "read": {
       ".env": "deny",
-      ".env.*": "deny"
+      ".env.*": "deny",
+      "data/admin.db": "deny",
+      "data/admin-secret.key": "deny"
     },
     "glob": {
       ".env": "deny",
-      ".env.*": "deny"
+      ".env.*": "deny",
+      "data/admin.db": "deny",
+      "data/admin-secret.key": "deny"
     },
     "grep": {
       ".env": "deny",
-      ".env.*": "deny"
+      ".env.*": "deny",
+      "data/admin.db": "deny",
+      "data/admin-secret.key": "deny"
     },
     "edit": {
       ".env": "deny",
-      ".env.*": "deny"
+      ".env.*": "deny",
+      "data/admin.db": "deny",
+      "data/admin-secret.key": "deny"
     }
   }
 }

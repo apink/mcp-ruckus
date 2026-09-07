@@ -18,8 +18,10 @@ services:
       - ./.env:/app/.env:ro
       # Persistent config backups (restore-ready)
       - ./backups:/app/backups
+      # Persistent SQLite DB (users, API keys, audit trail)
+      - ./data:/app/data
     healthcheck:
-      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.connect(('localhost',8000)); s.close()"]
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3

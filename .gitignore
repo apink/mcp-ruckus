@@ -1,6 +1,7 @@
 .env
 inventory/devices.yaml
 backups/
+data/
 __pycache__/
 *.pyc
 .ruff_cache/

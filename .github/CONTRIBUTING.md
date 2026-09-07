@@ -34,9 +34,9 @@ import re
 PORT_RE = re.compile(r"^\d+/\d+/\d+$")          # Format: 1/2/3
 MAC_DOT_RE = re.compile(r"^[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}\.[0-9a-fA-F]{4}$")  # d4c1.9e32.2c48
 MAC_COLON_RE = re.compile(r"^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$")            # d4:c1:9e:32:2c:48
-IPV4_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")  # 192.168.1.1
+IPV4_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")  # 192.0.2.1
 IPV6_RE = re.compile(r"^[0-9a-fA-F:]+$")          # 2001:db8::1
-ROUTE_DEST_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}(/\d{1,2})?$")        # 10.0.0.0/24
+ROUTE_DEST_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){3}(/\d{1,2})?$")        # 192.0.2.0/24
 ROUTE_DEST_IPV6_RE = re.compile(r"^[0-9a-fA-F:]+(/\d{1,3})?$")          # 2001:db8::/32
 
 def _validate_port(port: str) -> str:
@@ -142,9 +142,10 @@ Still required validation because:
 - vSZ: credentials via `.env` (`VSZ_USER`, `VSZ_PASS`, `VSZ_API_TOKEN`)
 - ICX: credentials via `inventory/devices.yaml` (field `username` / `password`)
 - ICX credential supports env var substitution: `${VAR_NAME}` → resolve from `.env` during `load_inventory()`
-- Unknown env var: `KeyError` → credential reset empty + log warning, device skip
-- `.env` and `inventory/devices.yaml` must be in `.gitignore`
-- Never log password, token, or service ticket
+- MCP clients: per-client API keys stored in SQLite (`data/admin.db`) with `name`, `allowed_tools` allowlist, and `allow_destructive`; managed via the admin GUI (`admin.py`); see `SECURITY.md`
+- Unknown env var: `KeyError` → credential reset empty + log warning, device/key skip
+- `.env`, `inventory/devices.yaml`, and `data/` must be in `.gitignore`
+- Never log password, token, service ticket, or API key
 - Use `.env.example` and `inventory/devices.example.yaml` as templates
 
 ```python
@@ -517,6 +518,8 @@ backups/
 - [x] No password/token in logs
 - [x] `.env` in `.gitignore`
 - [x] `backups/` in `.gitignore` (config backup contains secrets)
+- [x] Per-client API keys (SQLite `data/admin.db`) with `allowed_tools` allowlist + `allow_destructive` gate
+- [x] Audit trail — every tool call recorded to the SQLite `audit_log` table (redacted args, client identity, outcome, duration)
 
 ### Reliability
 - [x] SSH adapter has retry logic (2-3 attempts + backoff)
@@ -542,8 +545,8 @@ backups/
 
 ---
 
-**Last updated**: 2026-08-13
-**Status**: Production-ready with 1 known gap: vSZ UUID validation not yet implemented (see S2). Full async. 81 tools. Rate limiting enabled (vSZ + ICX).
+**Last updated**: 2026-09-07
+**Status**: Production-ready with 1 known gap: vSZ UUID validation not yet implemented (see S2). Full async. 90 tools. Rate limiting enabled (vSZ + ICX). Per-client API keys + audit trail enabled.
 
 ## Backlog — Future Development
 

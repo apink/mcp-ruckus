@@ -645,3 +645,10 @@ _apply_mocks()
 def mock_adapters():
     """Fixture placeholder — mocks already applied at module level."""
     yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_db(tmp_path, monkeypatch):
+    """Point SQLite at a fresh temp DB for every test."""
+    monkeypatch.setenv("MCP_DB_PATH", str(tmp_path / "test-admin.db"))
+    yield

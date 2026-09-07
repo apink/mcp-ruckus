@@ -28,7 +28,8 @@ All user inputs are validated before processing:
 ### Credential Management
 - No hardcoded credentials in source code
 - vSZ: credentials from `.env`; ICX: from `inventory/devices.yaml` (supports `${ENV_VAR}` substitution)
-- `.env` and `inventory/devices.yaml` are gitignored by default
+- Admin GUI accounts and per-client API keys: stored in SQLite (`data/admin.db`) with scrypt-hashed passwords
+- `.env`, `inventory/devices.yaml`, and `data/` are gitignored by default
 - Implementation rules: [CONTRIBUTING.md §S4](.github/CONTRIBUTING.md)
 
 ### Rate Limiting
@@ -44,6 +45,26 @@ Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/swit
 - Structured logging with timestamps
 - Health check endpoint for monitoring
 
+### Per-Client API Keys
+- Each AI assistant (or team) gets its own key, stored in SQLite (`data/admin.db`, gitignored) and managed via the admin GUI (`python3 admin.py`)
+- Per-key `allowed_tools` allowlist and `allow_destructive` gate (destructive tools blocked by default)
+- `MCP_API_KEY` remains as a fallback single key (unrestricted `"default"` client)
+- Keys take effect immediately — the MCP server resolves them live per request (no restart)
+- Implementation: [CONTRIBUTING.md §S4](.github/CONTRIBUTING.md)
+
+### Audit Trail
+- Every tool call is recorded to the SQLite `audit_log` table (`data/admin.db`)
+- Each record: timestamp, client name, client IP, tool, redacted arguments, outcome, duration, destructive flag
+- Sensitive argument values (passwords, tokens, keys) are redacted; the API key itself is never logged
+- Audit logging runs for all clients, including unauthenticated (`anonymous`) and per-key clients
+- Browse and filter the audit trail in the admin GUI (`/audit`)
+
+### Admin GUI Config & Restart
+- The admin GUI's **Config** page can edit `.env` (superadmin only) and set/rotate secrets (write-only — secrets are never shown back).
+- `.env` writes are validated, written atomically with a timestamped backup, and protected against concurrent manual edits (base-hash conflict detection).
+- The **Restart MCP** button runs `systemctl restart <MCP_SYSTEMD_UNIT>` (superadmin only). Deployment should scope this with a polkit rule granting only the GUI's OS user permission to manage that single unit — see [deploy/systemd.md](deploy/systemd.md).
+- All admin form submissions are CSRF-protected.
+
 ## Dependencies
 
 We use the following key dependencies:
@@ -56,10 +77,12 @@ All dependencies are regularly updated and audited.
 
 ## Security Testing
 
-- Automated testing with pytest (291 tests, 12 test files)
+- Automated testing with pytest (345 tests, 19 test files)
 - Input validation coverage: 100%
 - Error handling verification
 - Session management testing
+- Per-client API key + audit trail testing
+- Admin GUI auth + role-gating testing
 - Code quality scanning with ruff
 
 ## License

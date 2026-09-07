@@ -9,7 +9,7 @@ COPY adapters/ ./adapters/
 COPY inventory/ ./inventory/
 COPY models/ ./models/
 COPY tools/ ./tools/
-COPY server.py .
+COPY server.py security.py db.py admin.py ./
 
 # Setup non-root user for security
 RUN useradd -m -u 1000 mcpuser && chown -R mcpuser:mcpuser /app

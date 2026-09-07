@@ -70,3 +70,27 @@ def get_device_record(host: str) -> ICXDevice | None:
         if device.host == host or device.name == host:
             return device
     return None
+
+
+def load_inventory_raw() -> list[dict]:
+    """Return raw device dicts (credentials unresolved) for the admin GUI."""
+    if not INVENTORY_PATH.exists():
+        return []
+    with INVENTORY_PATH.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    return [d for d in data.get("devices", []) if isinstance(d, dict)]
+
+
+def save_inventory(devices: list[dict]) -> None:
+    """Atomically write the device list to inventory/devices.yaml."""
+    INVENTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = INVENTORY_PATH.with_suffix(".yaml.tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(
+            {"devices": devices},
+            f,
+            default_flow_style=False,
+            sort_keys=False,
+            allow_unicode=True,
+        )
+    os.replace(tmp, INVENTORY_PATH)

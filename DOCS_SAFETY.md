@@ -2,6 +2,8 @@
 
 All destructive tools require `confirm=True` to execute. Without it, they return `{"error": "confirm_required"}` without making any changes.
 
+On top of the `confirm` gate, per-client API keys add a second gate: a key must have `allow_destructive: true` before it can even *attempt* any tool below. Keys without it are rejected with `Access denied` and the attempt is recorded in the SQLite audit log.
+
 ## Dry-Run Preview
 
 All 15 ICX config tools support `dry_run=True` to preview commands without execution:

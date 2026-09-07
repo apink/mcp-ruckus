@@ -90,6 +90,12 @@ python3 server.py
 
 When it starts, the server listens on `0.0.0.0:8000` and serves Streamable HTTP at `http://{SERVER_IP}:8000/mcp` (use `localhost` for the same machine; SSE is also available at `/sse` if you set `MCP_TRANSPORT=sse`).
 
+Optionally start the admin web UI (separate process) to manage API keys, users, inventory, and the audit trail:
+
+```bash
+python3 admin.py     # http://localhost:8001
+```
+
 ### Option B — run with Docker
 
 Create your config files first (same as Option A, step 2):
@@ -105,6 +111,18 @@ Then build and start the container:
 docker compose up -d --build
 ```
 
+### Option C — run under systemd (with GUI restart)
+
+To use the admin GUI's **Restart MCP** button, run the server as a systemd unit
+and grant the GUI's OS user permission to restart only that unit (polkit rule).
+Full setup — unit files, polkit rule, and commands — is in
+[deploy/systemd.md](deploy/systemd.md).
+
+```bash
+sudo systemctl enable --now mcp-ruckus        # MCP server
+sudo systemctl enable --now mcp-ruckus-admin  # admin GUI (optional)
+```
+
 ## Configuration
 
 All settings live in a `.env` file (copy of `.env.example`) and, for switches, an inventory file.
@@ -113,7 +131,7 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 
 | Variable | What it does | Example |
 |---|---|---|
-| `VSZ_HOST` | IP address of your vSZ/SmartZone controller | `10.0.0.1` |
+| `VSZ_HOST` | IP address of your vSZ/SmartZone controller | `192.0.2.10` |
 | `VSZ_PORT` | HTTPS port of the controller | `8443` |
 | `VSZ_USER` / `VSZ_PASS` | Controller login | - |
 | `VSZ_API_TOKEN` | API token (optional, instead of user/pass) | - |
@@ -125,8 +143,14 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 | `MCP_PORT` | Which port the server listens on | `8000` |
 | `LOG_LEVEL` | How much logging you want (`DEBUG` also shows framework/SSH/access noise) | `INFO` |
 | `MCP_MAX_ITEMS` | Hard cap on list length returned by list tools | `50` |
-| `MCP_API_KEY` | Optional password the AI must send to connect | - |
-| `MCP_ALLOWED_IPS` | Optional whitelist of IPs allowed to connect | `10.0.0.0/8` |
+| `MCP_API_KEY` | Fallback single key the AI must send as a Bearer token (see per-client keys below) | - |
+| `MCP_ALLOWED_IPS` | Optional whitelist of IPs allowed to connect | `192.0.2.0/24` |
+| `MCP_DB_PATH` | Where the SQLite DB lives (users, API keys, audit trail) | `./data/admin.db` |
+| `MCP_ADMIN_HOST` | Address the admin web UI listens on (`127.0.0.1` = localhost only) | `127.0.0.1` |
+| `MCP_ADMIN_PORT` | Port the admin web UI listens on | `8001` |
+| `MCP_ADMIN_USER` | Default superadmin username (first boot only) | `admin` |
+| `MCP_ADMIN_INIT_PASS` | Initial superadmin password (first boot only; empty = random, printed once) | - |
+| `MCP_SYSTEMD_UNIT` | systemd unit name the admin GUI restarts via "Restart MCP" (systemd only) | `mcp-ruckus` |
 
 > Don't worry about most of these. The minimum is `VSZ_HOST`, `VSZ_PORT`, and `VSZ_USER`/`VSZ_PASS` (or `VSZ_API_TOKEN`).
 
@@ -136,7 +160,7 @@ If you also manage switches, create `inventory/devices.yaml` (copy `inventory/de
 
 ```yaml
 devices:
-  - host: "10.0.0.10"
+  - host: "192.0.2.10"
     name: "switch-core-01"
     vendor: "ruckus"
     role: "core"
@@ -144,11 +168,46 @@ devices:
     username: "${ICX_CORE_USER}"
     password: "${ICX_CORE_PASS}"
 
-  - host: "10.0.10.1"
+  - host: "198.51.100.20"
     name: "sw-branch"
-    username: "admin-branch"
-    password: "s3cret123"
+    username: "${ICX_BRANCH_USER}"
+    password: "${ICX_BRANCH_PASS}"
 ```
+
+### Per-client API keys + audit trail
+
+Instead of one shared `MCP_API_KEY`, you can give **each AI assistant its own key** with its own scope. Keys live in SQLite and are managed through the **admin web UI** (run `python3 admin.py`, then open `http://localhost:8001`):
+
+- **API Keys** page — create a key with a `name` (recorded in the audit log), an `allowed_tools` allowlist (empty = all tools), and an `allow_destructive` toggle (default off, blocks the 22 destructive tools).
+- Keys take effect **immediately** — the MCP server resolves them live, no restart needed.
+- `MCP_API_KEY` still works as a fallback (treated as an unrestricted `"default"` client).
+
+Every tool call is recorded to the SQLite audit log (client name, tool, redacted arguments, outcome, duration) — view and filter it in the admin UI's **Audit** page.
+
+### Admin web UI
+
+The admin GUI is a **separate process** from the MCP server, so it stays up even when the server is down:
+
+```bash
+python3 admin.py        # http://localhost:8001  (default)
+```
+
+Features:
+
+| Page | What it does |
+|---|---|
+| Dashboard | MCP server status (via `/health`), tool/API-key/user/audit counts, DB size |
+| API Keys | Create / edit / regenerate / delete per-client keys |
+| Inventory | Add / edit / delete devices in `inventory/devices.yaml` (applies live) |
+| Audit | Browse and filter the tool-call audit trail |
+| Config | (superadmin) edit `.env` settings, set/rotate secrets (write-only), restart the MCP server |
+| Users | (superadmin) manage admin accounts and roles |
+
+On first boot it creates a default `admin` superadmin and prints a one-time password to the console (set `MCP_ADMIN_INIT_PASS` in `.env` to choose your own); you're forced to change it on first login. Roles are `superadmin`, `operator`, and `viewer`.
+
+> The admin GUI does **not** start/stop the MCP process itself. The **Config** page
+> can restart it via systemd (superadmin only) — see [deploy/systemd.md](deploy/systemd.md).
+> Otherwise restarting stays manual (systemd/Docker); the GUI just reports status.
 
 ## Connect your AI assistant
 
@@ -249,7 +308,9 @@ For the JSON configs above, add a `headers` field:
 - Tools that change things require `confirm=True` — without it they refuse and do nothing.
 - Switch config changes support `dry_run=True`, so you can preview the command before it runs.
 - Config backups store metadata only by default; including the actual config is opt-in.
-- Passwords are never hardcoded in the repo; `.env` and `devices.yaml` are gitignored.
+- Passwords are never hardcoded in the repo; `.env`, `devices.yaml`, and `data/` are gitignored.
+- Each client can have its own API key with an `allowed_tools` allowlist and a destructive-tool gate.
+- Every tool call is recorded to the SQLite audit log (client, tool, redacted args, outcome, duration).
 
 ## Development
 
@@ -270,6 +331,7 @@ To quickly check that the server starts and responds:
 | [SECURITY.md](SECURITY.md) | Security policy, input validation, credential handling |
 | [CHANGES.md](CHANGES.md) | Changelog + release notes |
 | [SKILL.md](SKILL.md) | AI agent skill (copy to your agent's skills dir) |
+| [deploy/systemd.md](deploy/systemd.md) | systemd deployment (units, polkit rule, GUI restart) |
 
 ## License
 

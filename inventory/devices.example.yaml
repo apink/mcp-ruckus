@@ -8,7 +8,7 @@
 
 devices:
   # ICX Core — credential via env var
-  - host: 10.0.0.50
+  - host: 192.0.2.50
     name: icx-core
     vendor: ruckus
     role: core-switch
@@ -18,27 +18,27 @@ devices:
     password: ${ICX_CORE_PASS}
 
   # ICX Distribution — literal credential
-  - host: 10.0.0.51
+  - host: 198.51.100.51
     name: icx-dist-01
     vendor: ruckus
     role: distribution-switch
     location: DC-JKT
     rack: A-02
     username: admin-dist
-    password: dist-pass
+    password: CHANGE_ME
 
   # ICX Edge
-  - host: 10.0.0.52
+  - host: 203.0.113.52
     name: icx-edge-floor1
     vendor: ruckus
     role: access-switch
     location: Office-JKT-F1
     rack: B-05
     username: admin-edge
-    password: edge-pass
+    password: CHANGE_ME
 
   # ICX Remote Branch
-  - host: 10.0.10.1
+  - host: 198.51.100.1
     name: icx-branch-medan
     vendor: ruckus
     role: access-switch
