@@ -50,6 +50,8 @@ Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/swit
 - Authentication is required by default (fail-closed): every request must carry a Bearer token; `/health` stays open for monitoring. With no keys configured, the endpoint rejects all tool calls with `401` and logs a startup warning.
 - Each AI assistant (or team) gets its own key, stored in SQLite (`data/admin.db`, gitignored) and managed via the admin GUI (`python3 admin.py`)
 - Per-key `allowed_tools` allowlist and `allow_destructive` gate (destructive tools blocked by default)
+- `tools/list` is filtered per key as well — a client only receives the schemas for tools its key may call, so scoping a key also shrinks token/context usage instead of only blocking calls
+- The key form's **Agent-lean** preset scopes a key to the curated read-only `lean.LEAN_TOOLS` set in one click
 - `MCP_API_KEY` remains as a fallback single key (unrestricted `"default"` client)
 - Keys take effect immediately — the MCP server resolves them live per request (no restart)
 - New/regenerated keys are revealed once via a signed session flash, never in the URL query string
@@ -81,7 +83,7 @@ All dependencies are regularly updated and audited.
 
 ## Security Testing
 
-- Automated testing with pytest (352 tests, 19 test files)
+- Automated testing with pytest (359 tests, 19 test files)
 - Input validation coverage: 100%
 - Error handling verification
 - Session management testing

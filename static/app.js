@@ -2,6 +2,12 @@ function setGroup(g,on){var b=document.querySelectorAll('input[name=tool][data-g
 for(var i=0;i<b.length;i++){b[i].checked=on;}return false;}
 function setAll(on){var b=document.querySelectorAll('input[name=tool]');
 for(var i=0;i<b.length;i++){b[i].checked=on;}return false;}
+function setLean(){var lean=window.LEAN_TOOLS||[];var s={};
+for(var i=0;i<lean.length;i++){s[lean[i]]=1;}
+var b=document.querySelectorAll('input[name=tool]');
+for(var j=0;j<b.length;j++){b[j].checked=!!s[b[j].value];}
+var d=document.querySelector('input[name=allow_destructive]');
+if(d){d.checked=false;}return false;}
 function filterTools(input){
 var q=(input.value||'').trim().toLowerCase();
 var groups=document.querySelectorAll('.tool-group');

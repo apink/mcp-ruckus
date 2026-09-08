@@ -13,12 +13,13 @@ import contextvars
 import logging
 import re
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 import mcp.types as mt
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
-from fastmcp.tools.base import ToolResult
+from fastmcp.tools.base import Tool, ToolResult
 
 import db
 
@@ -236,6 +237,18 @@ class AuditMiddleware(Middleware):
             client_ip=get_client_ip(),
         )
         return result
+
+    async def on_list_tools(
+        self,
+        context: MiddlewareContext[mt.ListToolsRequest],
+        call_next: CallNext[mt.ListToolsRequest, Sequence[Tool]],
+    ) -> Sequence[Tool]:
+        """Filter the tool list to what the current key may actually call."""
+        tools = await call_next(context)
+        identity = get_client_identity()
+        if identity is None:
+            return tools
+        return [tool for tool in tools if identity.can_call(tool.name)]
 
     @staticmethod
     def _outcome(result: ToolResult) -> str:

@@ -110,6 +110,10 @@ only a bootstrap. Roles are:
    - **Name** — a label recorded against every tool call in the audit log
      (e.g. `hermes`, `ops-team`).
    - **Allowed tools** — leave empty to allow all 90 tools, or tick a subset.
+     For AI assistants, use the **Agent-lean** preset (one click) to scope the
+     key to ~17 read-only tools (search/status/summary). This keeps the agent's
+     `tools/list` small — less tokens/context, and no destructive tools to
+     mis-select.
    - **Allow destructive** — leave off (default); blocks the 22 destructive tools.
      These are state-changing operations (reboot an AP, disconnect clients,
      create/modify WLANs, change switch config, save config, …) — enable only

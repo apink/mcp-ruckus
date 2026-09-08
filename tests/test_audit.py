@@ -8,8 +8,10 @@ import mcp.types as mt
 from fastmcp.server.middleware import MiddlewareContext
 from fastmcp.tools.base import ToolResult
 
+import admin
 import db
 import security
+from lean import LEAN_TOOLS
 from security import AuditLogger, AuditMiddleware, ClientIdentity, KeyStore, set_client_identity
 
 
@@ -165,3 +167,61 @@ class TestAuditMiddleware:
         record = _last_audit()
         assert record["client"] == "anonymous"
         assert record["outcome"] == "error"
+
+
+class _FakeTool:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+def _list_ctx() -> MiddlewareContext:
+    return MiddlewareContext(message=None)
+
+
+class TestAuditMiddlewareListTools:
+    def _call(self, identity: ClientIdentity | None, tools: list[_FakeTool]):
+        mw = AuditMiddleware(AuditLogger())
+
+        async def call_next(ctx):
+            return tools
+
+        async def run():
+            set_client_identity(identity)
+            return await mw.on_list_tools(_list_ctx(), call_next)
+
+        return asyncio.run(run())
+
+    def test_anonymous_returns_full_list(self):
+        tools = [_FakeTool("ap_status"), _FakeTool("reboot_ap"), _FakeTool("client_search")]
+        result = self._call(None, tools)
+        assert [t.name for t in result] == ["ap_status", "reboot_ap", "client_search"]
+
+    def test_allowlist_filters_list(self):
+        ident = ClientIdentity(name="ro", key="k", allowed_tools=frozenset({"ap_status", "client_search"}))
+        tools = [_FakeTool("ap_status"), _FakeTool("reboot_ap"), _FakeTool("client_search")]
+        result = self._call(ident, tools)
+        assert [t.name for t in result] == ["ap_status", "client_search"]
+
+    def test_destructive_gate_hides_destructive(self):
+        ident = ClientIdentity(name="ro", key="k")  # allow_destructive=False
+        tools = [_FakeTool("ap_status"), _FakeTool("reboot_ap")]
+        result = self._call(ident, tools)
+        assert [t.name for t in result] == ["ap_status"]
+
+    def test_empty_allowlist_returns_full_list(self):
+        ident = ClientIdentity(name="admin", key="k", allow_destructive=True)
+        tools = [_FakeTool("ap_status"), _FakeTool("reboot_ap")]
+        result = self._call(ident, tools)
+        assert [t.name for t in result] == ["ap_status", "reboot_ap"]
+
+
+class TestLeanTools:
+    def test_non_empty(self):
+        assert len(LEAN_TOOLS) > 0
+
+    def test_no_destructive_tools(self):
+        assert not (LEAN_TOOLS & security.DESTRUCTIVE_TOOLS)
+
+    def test_all_names_registered(self):
+        all_names = {name for _, names in admin._tool_names_by_domain() for name in names}
+        assert LEAN_TOOLS <= all_names

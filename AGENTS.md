@@ -21,7 +21,7 @@ python3 server.py
 python3 admin.py
 
 # Test (mock adapters, no real hardware)
-pytest tests/ -q          # 352 tests, 19 files
+pytest tests/ -q          # 359 tests, 19 files
 
 # Lint
 ruff check .

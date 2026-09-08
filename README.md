@@ -312,6 +312,8 @@ On first boot it creates a default `admin` superadmin with password `digantiYA_3
 Instead of one shared `MCP_API_KEY`, you can give **each AI assistant its own key** with its own scope. Keys live in SQLite and are managed through the **admin web UI** (see above):
 
 - **API Keys** page — create a key with a `name` (recorded in the audit log), an `allowed_tools` allowlist (empty = all tools), and an `allow_destructive` toggle (default off, blocks the 22 destructive tools).
+- **Agent-lean preset** — one click scopes a key to the curated read-only `lean.LEAN_TOOLS` set (~17 of 90 tools), ideal for AI assistants that only need search/status/summary.
+- The `tools/list` response is filtered to the key's scope too — a scoped key only receives the schemas for the tools it may call, cutting token/context overhead (not just blocking calls).
 - Keys take effect **immediately** — the MCP server resolves them live, no restart needed.
 - `MCP_API_KEY` still works as a fallback (treated as an unrestricted `"default"` client).
 

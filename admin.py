@@ -40,6 +40,7 @@ from starlette.staticfiles import StaticFiles
 
 import db
 from inventory import manager as inv_manager
+from lean import LEAN_TOOLS
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -317,11 +318,13 @@ def _tool_checkboxes(selected: set[str]) -> str:
     return (
         '<div class="tools"><div class="tool-actions">'
         '<a href="#" onclick="return setAll(true)">Select all</a> · '
-        '<a href="#" onclick="return setAll(false)">Clear</a>'
+        '<a href="#" onclick="return setAll(false)">Clear</a> · '
+        '<a href="#" onclick="return setLean()" title="Read-only tools for AI agents">Agent-lean</a>'
         '<input type="text" id="tool-filter" placeholder="Filter tools…" '
         'oninput="filterTools(this)">'
         '</div>'
         + "".join(blocks)
+        + f"<script>window.LEAN_TOOLS={json.dumps(sorted(LEAN_TOOLS))};</script>"
         + "</div>"
     )
 

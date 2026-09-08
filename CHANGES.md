@@ -7,6 +7,7 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-08 | Lean agent toolset + scoped `tools/list` | `security.py` — `AuditMiddleware.on_list_tools` filters the tool list to what the current key may call (scoped keys no longer receive all 90 schemas); new `lean.py` `LEAN_TOOLS` (~17 read-only tools) plus an **Agent-lean** preset in the API-key form; `SECURITY.md`/`README.md`/`docs/QUICKSTART.md` documented |
 | 2026-09-08 | Community + docs polish | Add issue/PR templates and Dependabot; `README.md` notes the GUI **Inventory** page edits `devices.yaml`; `docs/QUICKSTART.md` §4 points OpenClaw/Claude to README (Hermes kept inline) to avoid duplicating agent configs |
 | 2026-09-08 | Quickstart: SERVER_IP not localhost | `docs/QUICKSTART.md` — agent URLs, admin login, and curl verify now use `{SERVER_IP}` with a "use `localhost` if same machine" note, matching `README.md` |
 | 2026-09-08 | Quickstart: systemd for production | `docs/QUICKSTART.md` — "Start the server" Option B is now systemd (install units + polkit rule, enables the GUI **Restart MCP** button); local Python moved to a dev-only note; prerequisites now spell out per-path requirements (Docker vs systemd vs dev) with a `python3 --version` check; `deploy/systemd.md` documents Ubuntu/systemd + Python 3.12+ prerequisite |
