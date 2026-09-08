@@ -8,6 +8,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY adapters/ ./adapters/
 COPY inventory/ ./inventory/
 COPY models/ ./models/
+COPY static/ ./static/
 COPY tools/ ./tools/
 COPY server.py security.py db.py admin.py ./
 

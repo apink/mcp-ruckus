@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 import base64
+import functools
 import hashlib
 import hmac
 import html
@@ -25,6 +26,7 @@ import secrets
 import subprocess
 import time
 import urllib.parse
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +36,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
+from starlette.staticfiles import StaticFiles
 
 import db
 from inventory import manager as inv_manager
@@ -57,7 +60,8 @@ if _ENV_PATH.exists():
 SESSION_COOKIE = "ruckus_admin"
 SESSION_TTL = 24 * 3600
 RANKS = {"viewer": 1, "operator": 2, "superadmin": 3}
-PAGE_SIZE = 50
+PAGE_SIZE = 25
+_PAGE_SIZES = (10, 25, 50, 100)
 
 
 def _q(value: str) -> str:
@@ -93,17 +97,16 @@ def _sig(payload: str) -> str:
     return hmac.new(_secret(), payload.encode(), hashlib.sha256).hexdigest()
 
 
-def _make_token(user: dict[str, Any]) -> str:
-    payload = _b64e(
-        json.dumps(
-            {
-                "uid": user["id"],
-                "username": user["username"],
-                "role": user["role"],
-                "exp": int(time.time()) + SESSION_TTL,
-            }
-        ).encode()
-    )
+def _make_token(user: dict[str, Any], flash: str | None = None) -> str:
+    data = {
+        "uid": user["id"],
+        "username": user["username"],
+        "role": user["role"],
+        "exp": int(time.time()) + SESSION_TTL,
+    }
+    if flash is not None:
+        data["flash"] = flash
+    payload = _b64e(json.dumps(data).encode())
     return payload + "." + _sig(payload)
 
 
@@ -155,6 +158,14 @@ def _set_session(response: Response, user: dict[str, Any]) -> Response:
     return response
 
 
+def _set_flash(response: Response, user: dict[str, Any], flash: str) -> Response:
+    """Set a one-shot flash value (e.g. a revealed API key) on the session cookie."""
+    response.set_cookie(
+        SESSION_COOKIE, _make_token(user, flash), max_age=SESSION_TTL, httponly=True, samesite="lax"
+    )
+    return response
+
+
 def _clear_session(response: Response) -> Response:
     response.delete_cookie(SESSION_COOKIE)
     return response
@@ -164,120 +175,6 @@ def _clear_session(response: Response) -> Response:
 
 def esc(value: Any) -> str:
     return html.escape("" if value is None else str(value))
-
-
-_CSS = """
-:root{--bg:#f4f6f9;--panel:#fff;--ink:#1a2238;--muted:#6b7280;--line:#e5e7eb;
---brand:#0f172a;--accent:#2563eb;--ok:#16a34a;--ok-bg:#ecfdf5;--err:#dc2626;--err-bg:#fef2f2}
-*{box-sizing:border-box}
-body{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-background:var(--bg);color:var(--ink);font-size:14px;line-height:1.55}
-a{color:var(--accent);text-decoration:none}
-a:hover{text-decoration:underline}
-
-.shell{display:flex;min-height:100vh}
-.sidebar{width:220px;flex:0 0 220px;background:var(--brand);color:#fff;
-display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
-.sidebar .brand{padding:1rem 1.25rem;font-weight:700;letter-spacing:.3px;
-border-bottom:1px solid rgba(255,255,255,.08)}
-.sidebar .brand .sub{color:#94a3b8;font-weight:400}
-.sidebar nav{display:flex;flex-direction:column;padding:.5rem 0;gap:2px}
-.sidebar nav a{color:#cbd5e1;padding:.55rem 1.25rem;font-size:13px}
-.sidebar nav a:hover{background:rgba(255,255,255,.06);color:#fff;text-decoration:none}
-.sidebar nav a.active{background:var(--accent);color:#fff;font-weight:600}
-.sidebar .who{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);
-font-size:12px;color:#94a3b8;display:flex;flex-direction:column;gap:.35rem}
-.sidebar .who a{color:#cbd5e1}
-.sidebar .who a:hover{color:#fff}
-.main{flex:1;min-width:0}
-.content{max-width:1100px;margin:1.5rem auto;padding:0 1.5rem 3rem}
-
-.page-head{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;
-flex-wrap:wrap;margin-bottom:1.25rem}
-.page-head h2{margin:0;padding:0;border:0;font-size:1.3rem}
-h1{font-size:1.25rem;margin:0 0 1rem}
-h2{font-size:1.05rem;margin:1.3rem 0 .7rem;padding-bottom:.4rem;border-bottom:1px solid var(--line)}
-h3{font-size:.95rem;margin:1.1rem 0 .5rem;color:var(--accent)}
-
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
-padding:1.1rem 1.25rem;margin:1rem 0}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:1rem}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1rem 1.1rem}
-.stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:.4rem}
-.stat .v{font-size:1.15rem;font-weight:700;word-break:break-word}
-
-.tools{border:1px solid var(--line);border-radius:8px;padding:.9rem 1rem;background:#fff;
-max-width:44rem;margin:.4rem 0}
-.tool-actions{margin-bottom:.5rem;font-size:12px}
-.tool-group{margin:.6rem 0}
-.tool-head{font-weight:600;font-size:12px;color:#334155;border-bottom:1px solid var(--line);
-padding-bottom:.25rem;margin-bottom:.4rem}
-.tool-head a{font-weight:400;font-size:11px;margin-left:.4rem}
-.tool-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.15rem .6rem}
-label.tool{display:flex;align-items:flex-start;gap:.4rem;min-width:0;font-size:12px;
-margin:0;color:var(--ink);cursor:pointer}
-label.tool input{width:auto;margin-top:.18rem}
-
-pre{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:.8rem 1rem;
-overflow:auto;font-size:12px;line-height:1.5;color:#334155}
-code{background:#f1f5f9;padding:.05rem .3rem;border-radius:4px;font-size:12px}
-pre code{background:none;padding:0}
-.howto{margin:.4rem 0 0 1.3rem;padding:0}
-.howto li{margin:.55rem 0}
-.howto pre{margin:.35rem 0 .6rem}
-details.card summary{cursor:pointer;font-weight:600;color:var(--accent);font-size:.95rem;margin-bottom:.5rem}
-.reveal{background:var(--ok-bg);border:1px solid #86efac;border-radius:8px;
-padding:.9rem 1rem;margin-bottom:1rem}
-.reveal-label{font-size:12px;color:#15803d;margin-bottom:.45rem}
-.reveal-row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
-.reveal-key{font-family:inherit;background:#fff;border:1px solid #bbf7d0;border-radius:6px;
-padding:.4rem .6rem;font-size:13px;word-break:break-all}
-
-table{border-collapse:collapse;width:100%;background:var(--panel);
-border:1px solid var(--line);border-radius:8px;overflow:hidden}
-th,td{text-align:left;padding:.5rem .6rem;font-size:13px;vertical-align:top;border-bottom:1px solid var(--line)}
-th{background:#f8fafc;font-weight:600;color:#334155;white-space:nowrap}
-tbody tr:nth-child(even){background:#fafbfc}
-tbody tr:hover{background:#f1f5f9}
-form{margin:.5rem 0}
-label{display:inline-block;min-width:8rem;color:#334155;font-size:13px;margin:.15rem 0}
-input[type=text],input[type=password],textarea,select{font-family:inherit;font-size:13px;
-padding:.45rem .55rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;
-color:var(--ink);width:20rem;max-width:100%}
-input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);border-color:var(--accent)}
-textarea{height:6rem;resize:vertical}
-button{font-family:inherit;font-size:13px;padding:.45rem .9rem;border:1px solid var(--accent);
-background:var(--accent);color:#fff;border-radius:6px;cursor:pointer}
-button:hover{filter:brightness(1.08)}
-form[action$="/delete"] button{background:#fff;color:var(--err);border-color:var(--err)}
-form[action$="/delete"] button:hover{background:var(--err-bg)}
-form[action$="/regenerate"] button{background:#fff;color:#b45309;border-color:#f59e0b}
-.alert{padding:.6rem .9rem;border-radius:6px;border:1px solid;margin:.75rem 0}
-.alert.ok{background:var(--ok-bg);border-color:#86efac;color:var(--ok)}
-.alert.error{background:var(--err-bg);border-color:#fca5a5;color:var(--err)}
-.badge{display:inline-block;padding:.1rem .5rem;border-radius:999px;font-size:11px;font-weight:600}
-.role-superadmin{background:#7c3aed;color:#fff}
-.role-operator{background:#2563eb;color:#fff}
-.role-viewer{background:#64748b;color:#fff}
-.status{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:12px;font-weight:700}
-.status.up{background:#dcfce7;color:#15803d}
-.status.down{background:#fee2e2;color:#b91c1c}
-.muted{color:var(--muted)}
-body.login{display:flex;align-items:center;justify-content:center;min-height:100vh}
-.login-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
-padding:2rem;width:100%;max-width:360px;box-shadow:0 6px 18px rgba(15,23,42,.08)}
-.login-brand{font-size:1.15rem;font-weight:700;text-align:center;margin-bottom:1.25rem}
-.login-brand span{color:var(--accent)}
-.login-card label{display:block;min-width:0;margin:.75rem 0 .3rem}
-.login-card button{width:100%;margin-top:1.25rem}
-
-@media(max-width:760px){
-.shell{flex-direction:column}
-.sidebar{width:100%;flex:0 0 auto;position:static;height:auto}
-.sidebar nav{flex-direction:row;flex-wrap:wrap}
-.sidebar .who{margin-top:.5rem}
-}
-"""
 
 
 def _alert(msg: str, kind: str = "error") -> str:
@@ -305,20 +202,24 @@ def _nav(user: dict[str, Any] | None, current: str = "") -> str:
         ("Audit", "/audit"),
         ("Config", "/config"),
     ]
-    if user["role"] == "superadmin":
-        links.append(("Users", "/users"))
-    links.append(("Change password", "/change-password"))
     active_path = _NAV_PATHS.get(current, "")
     items = "".join(
         f'<a href="{u}" class="{"active" if u == active_path else ""}">{n}</a>'
         for n, u in links
     )
+    if user["role"] == "superadmin":
+        items += (
+            '<div class="nav-sep"></div>'
+            + f'<a href="/users" class="{"active" if active_path == "/users" else ""}">Users</a>'
+        )
     role = f'<span class="badge role-{esc(user["role"])}">{esc(user["role"])}</span>'
+    change_pw_active = ' class="active"' if active_path == "/change-password" else ""
     return (
         '<aside class="sidebar">'
         '<div class="brand">Ruckus MCP <span class="sub">Admin</span></div>'
         f"<nav>{items}</nav>"
         f'<div class="who"><span>{esc(user["username"])} {role}</span>'
+        f'<a href="/change-password"{change_pw_active}>Change password</a>'
         '<a href="/logout">Logout</a></div>'
         "</aside>"
     )
@@ -329,8 +230,9 @@ def _page(title: str, body: str, user: dict[str, Any] | None, msg: str = "", err
     return (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{esc(title)} — Ruckus MCP Admin</title><style>{_CSS}</style>"
-        f"<script>{_JS}</script></head><body>"
+        f"<title>{esc(title)} — Ruckus MCP Admin</title>"
+        '<link rel="stylesheet" href="/static/style.css">'
+        '<script src="/static/app.js"></script></head><body>'
         f'<div class="shell">{_nav(user, title)}'
         f'<div class="main"><main class="content">{alert}{body}</main></div></div></body></html>'
     )
@@ -340,24 +242,13 @@ def _login_page(title: str, body: str) -> str:
     return (
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>"
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{esc(title)} — Ruckus MCP Admin</title><style>{_CSS}</style></head>"
+        f"<title>{esc(title)} — Ruckus MCP Admin</title>"
+        '<link rel="stylesheet" href="/static/style.css"></head>'
         f"<body class='login'><main class='login-wrap'>{body}</main></body></html>"
     )
 
 
 # ── Tool catalog (for key scoping) ──────────────────────────────────
-
-_JS = """
-function setGroup(g,on){var b=document.querySelectorAll('input[name=tool][data-g="'+g+'"]');
-for(var i=0;i<b.length;i++){b[i].checked=on;}return false;}
-function setAll(on){var b=document.querySelectorAll('input[name=tool]');
-for(var i=0;i<b.length;i++){b[i].checked=on;}return false;}
-function copyKey(){var el=document.getElementById('reveal-key');if(!el){return;}
-var t=el.textContent;
-if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t);}
-else{var ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();
-try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}}
-"""
 
 _DOMAIN_ORDER = ["vSZ", "ICX", "Inventory", "Connectivity"]
 
@@ -380,6 +271,7 @@ def _is_tool_decorator(node: ast.expr) -> bool:
     return isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "tool"
 
 
+@functools.lru_cache(maxsize=1)
 def _tool_names_by_domain() -> list[tuple[str, list[str]]]:
     """Enumerate MCP tool names from tools/*.py source, grouped by domain."""
     groups: dict[str, set[str]] = {}
@@ -403,7 +295,7 @@ def _tool_names_by_domain() -> list[tuple[str, list[str]]]:
 
 
 def _tool_checkboxes(selected: set[str]) -> str:
-    """Render grouped checkboxes for tool scoping (empty selection = all)."""
+    """Render grouped, collapsible checkboxes for tool scoping (empty = all)."""
     groups = _tool_names_by_domain()
     if not groups:
         return "<p class='muted'>Could not enumerate tools (tools/ not found).</p>"
@@ -414,17 +306,21 @@ def _tool_checkboxes(selected: set[str]) -> str:
             f'data-g="{esc(domain)}" {"checked" if n in selected else ""}> {esc(n)}</label>'
             for n in names
         )
+        open_attr = " open" if set(names) & selected else ""
         blocks.append(
-            f'<div class="tool-group"><div class="tool-head">{esc(domain)} '
+            f'<details class="tool-group"{open_attr}><summary class="tool-head">{esc(domain)} '
             f'<span class="muted">({len(names)})</span>'
-            f'<a href="#" onclick="return setGroup(\'{esc(domain)}\',true)">all</a>'
-            f'<a href="#" onclick="return setGroup(\'{esc(domain)}\',false)">none</a></div>'
-            f'<div class="tool-list">{boxes}</div></div>'
+            f'<a href="#" onclick="event.stopPropagation(); return setGroup(\'{esc(domain)}\',true)">all</a>'
+            f'<a href="#" onclick="event.stopPropagation(); return setGroup(\'{esc(domain)}\',false)">none</a>'
+            f'</summary><div class="tool-list">{boxes}</div></details>'
         )
     return (
         '<div class="tools"><div class="tool-actions">'
         '<a href="#" onclick="return setAll(true)">Select all</a> · '
-        '<a href="#" onclick="return setAll(false)">Clear</a></div>'
+        '<a href="#" onclick="return setAll(false)">Clear</a>'
+        '<input type="text" id="tool-filter" placeholder="Filter tools…" '
+        'oninput="filterTools(this)">'
+        '</div>'
         + "".join(blocks)
         + "</div>"
     )
@@ -524,10 +420,11 @@ async def change_password_submit(request: Request) -> Response:
 
 def _pw_form() -> str:
     return (
-        '<div class="card"><h2>Change password</h2>'
+        '<div class="page-head"><h2>Change password</h2></div>'
+        '<div class="card">'
         '<form method="post" action="/change-password">'
-        '<label>New password</label><input type="password" name="new_password"><br>'
-        '<label>Confirm</label><input type="password" name="confirm"><br>'
+        '<label>New password</label><input type="password" name="new_password" autocomplete="new-password"><br>'
+        '<label>Confirm</label><input type="password" name="confirm" autocomplete="new-password"><br>'
         '<button type="submit">Save</button></form></div>'
     )
 
@@ -576,9 +473,10 @@ async def keys_page(request: Request) -> Response:
             f"<td>{destructive}</td><td><a href='/keys?edit={esc(k['name'])}'>edit</a></td></tr>"
         )
     table = (
-        "<table><tr><th>Name</th><th>Key</th><th>Allowed tools</th><th>Config</th><th></th></tr>"
+        "<div class='card'><div class='table-scroll'><table><tr><th>Name</th><th>Key</th><th>Allowed tools</th>"
+        "<th>Config</th><th></th></tr>"
         + "".join(trs)
-        + "</table>"
+        + "</table></div></div>"
     )
 
     edit_name = request.query_params.get("edit", "")
@@ -589,7 +487,8 @@ async def keys_page(request: Request) -> Response:
             edit_form = _key_form(target, user)
     add_form = "" if edit_name else _key_form(None, user)
 
-    reveal_key = request.query_params.get("key", "")
+    data = _read_token(request)
+    reveal_key = (data or {}).get("flash", "")
     reveal_box = ""
     if reveal_key:
         reveal_box = (
@@ -604,7 +503,10 @@ async def keys_page(request: Request) -> Response:
         f'<div class="page-head"><h2>API Keys</h2></div>{reveal_box}'
         f"{table}{add_form}{edit_form}"
     )
-    return HTMLResponse(_page("API Keys", body, user, request.query_params.get("msg", "")))
+    response = HTMLResponse(_page("API Keys", body, user, request.query_params.get("msg", "")))
+    if data and "flash" in data:
+        _set_session(response, user)
+    return response
 
 
 def _key_form(target: dict[str, Any] | None, user: dict[str, Any]) -> str:
@@ -664,10 +566,10 @@ async def key_add(request: Request) -> Response:
         db.create_api_key(name, key, tools, destructive)
     except Exception as exc:  # noqa: BLE001
         return RedirectResponse("/keys?msg=" + _q(f"Error: {exc}"), status_code=303)
-    target = "/keys?msg=" + _q("Key created: " + name)
+    response = RedirectResponse("/keys?msg=" + _q("Key created: " + name), status_code=303)
     if generated:
-        target += "&key=" + _q(key)
-    return RedirectResponse(target, status_code=303)
+        _set_flash(response, user, key)
+    return response
 
 
 async def key_update(request: Request) -> Response:
@@ -706,8 +608,9 @@ async def key_regenerate(request: Request) -> Response:
     name = str(form.get("name", "")).strip()
     new_key = db.regenerate_api_key(name)
     if new_key:
-        target = "/keys?msg=" + _q("Key regenerated: " + name) + "&key=" + _q(new_key)
-        return RedirectResponse(target, status_code=303)
+        response = RedirectResponse("/keys?msg=" + _q("Key regenerated: " + name), status_code=303)
+        _set_flash(response, user, new_key)
+        return response
     return RedirectResponse("/keys?msg=" + _q("Key not found"), status_code=303)
 
 
@@ -730,8 +633,8 @@ async def inventory_page(request: Request) -> Response:
             f"<td>{cred}</td><td><a href='/inventory?edit={esc(d.get('host',''))}'>edit</a></td></tr>"
         )
     table = (
-        "<table><tr><th>Host</th><th>Name</th><th>Vendor</th><th>Role</th>"
-        "<th>Location</th><th>Rack</th><th>Auth</th><th></th></tr>" + "".join(trs) + "</table>"
+        "<div class='card'><div class='table-scroll'><table><tr><th>Host</th><th>Name</th><th>Vendor</th><th>Role</th>"
+        "<th>Location</th><th>Rack</th><th>Auth</th><th></th></tr>" + "".join(trs) + "</table></div></div>"
     )
 
     edit_host = request.query_params.get("edit", "")
@@ -824,6 +727,43 @@ async def inventory_delete(request: Request) -> Response:
 
 # ── Audit ───────────────────────────────────────────────────────────
 
+def _fmt_ts(ts: str) -> str:
+    """Format an ISO UTC timestamp for display in the server's local timezone."""
+    try:
+        dt = datetime.fromisoformat(ts)
+        return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return ts
+
+
+def _pager(page: int, pages: int, client: str, tool: str, outcome: str, text: str, per_page: int) -> str:
+    """Render a bounded pagination bar (prev/next + windowed page numbers)."""
+
+    def link(p: int, label: str) -> str:
+        qs = (
+            f"client={_q(client)}&tool={_q(tool)}&outcome={_q(outcome)}"
+            f"&text={_q(text)}&per_page={per_page}&page={p}"
+        )
+        return f'<a href="/audit?{qs}">{label}</a>'
+
+    items: list[str] = []
+    if page > 1:
+        items.append(link(page - 1, "Prev"))
+    shown = sorted({p for p in (1, pages, page - 2, page - 1, page, page + 1, page + 2) if 1 <= p <= pages})
+    prev = 0
+    for p in shown:
+        if p != prev + 1:
+            items.append('<span class="gap">…</span>')
+        if p == page:
+            items.append(f'<span class="current">{p}</span>')
+        else:
+            items.append(link(p, str(p)))
+        prev = p
+    if page < pages:
+        items.append(link(page + 1, "Next"))
+    return f'<div class="pager">{"".join(items)}</div>'
+
+
 async def audit_page(request: Request) -> Response:
     user, err = _require(request, "viewer")
     if err:
@@ -837,27 +777,41 @@ async def audit_page(request: Request) -> Response:
         page = max(1, int(q.get("page", "1")))
     except ValueError:
         page = 1
+    try:
+        per_page = int(q.get("per_page", str(PAGE_SIZE)))
+    except ValueError:
+        per_page = PAGE_SIZE
+    if per_page not in _PAGE_SIZES:
+        per_page = PAGE_SIZE
     rows, total = db.query_audit(
         client=client, tool=tool, outcome=outcome, text=text,
-        limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE,
+        limit=per_page, offset=(page - 1) * per_page,
     )
     summary = db.audit_summary()
     client_opts = ['<option value="">(all)</option>'] + [
         f'<option value="{esc(c)}" {"selected" if c == client else ""}>{esc(c)}</option>'
         for c in db.distinct_audit_clients()
     ]
+    outcome_opts = ['<option value="">(all)</option>'] + [
+        f'<option value="{o}" {"selected" if o == outcome else ""}>{o}</option>'
+        for o in ("ok", "error", "denied", "exception")
+    ]
+    per_page_opts = "".join(
+        f'<option value="{n}" {"selected" if n == per_page else ""}>{n}</option>'
+        for n in _PAGE_SIZES
+    )
 
+    by_outcome = " · ".join(f"{esc(k)}: {v}" for k, v in sorted(summary["by_outcome"].items()))
+    outcome_txt = f" · {by_outcome}" if by_outcome else ""
     body = (
         '<div class="page-head"><h2>Audit Trail</h2></div>'
         '<div class="card">'
-        f"<p class='muted'>Total events: {summary['total']} "
-        f"| by outcome: {esc(json.dumps(summary['by_outcome']))}</p>"
+        f"<p class='muted'>Total events: {summary['total']}{outcome_txt}</p>"
         '<form method="get" action="/audit">'
         f'<label>Client</label><select name="client">{"".join(client_opts)}</select><br>'
-        f'<label>Tool</label><input type="text" name="tool" value="{esc(tool)}"><br>'
-        f'<label>Outcome</label><input type="text" name="outcome" value="{esc(outcome)}" '
-        f'placeholder="ok/error/denied/exception"><br>'
-        f'<label>Text</label><input type="text" name="text" value="{esc(text)}"><br>'
+        f'<label>Outcome</label><select name="outcome">{"".join(outcome_opts)}</select><br>'
+        f'<label>Text</label><input type="text" name="text" value="{esc(text)}" placeholder="tool or client"><br>'
+        f'<label>Rows</label><select name="per_page">{"".join(per_page_opts)}</select><br>'
         '<button type="submit">Filter</button></form></div>'
     )
     if rows:
@@ -869,26 +823,23 @@ async def audit_page(request: Request) -> Response:
             except (ValueError, TypeError):
                 args_txt = args
             trs.append(
-                f"<tr><td>{esc(r['ts'])}</td><td>{esc(r['client'])}</td><td>{esc(r['client_ip'] or '')}</td>"
+                f"<tr><td>{esc(_fmt_ts(r['ts']))}</td><td>{esc(r['client'])}</td><td>{esc(r['client_ip'] or '')}</td>"
                 f"<td>{esc(r['tool'])}</td><td>{esc(r['outcome'])}</td><td>{esc(r['duration_ms'])}</td>"
                 f"<td>{'yes' if r['destructive'] else ''}</td><td class='muted'>{esc(args_txt[:120])}</td></tr>"
             )
         body += (
-            "<table><tr><th>Time</th><th>Client</th><th>IP</th><th>Tool</th>"
+            "<div class='card'><div class='table-scroll'><table><tr><th>Time</th><th>Client</th><th>IP</th>"
+            "<th>Tool</th>"
             "<th>Outcome</th><th>ms</th><th>Destr</th><th>Args</th></tr>"
             + "".join(trs)
-            + "</table>"
+            + "</table></div></div>"
         )
     else:
         body += "<p>No events.</p>"
 
-    pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+    pages = (total + per_page - 1) // per_page
     if pages > 1:
-        links = []
-        for p in range(1, pages + 1):
-            qs = f"client={esc(client)}&tool={esc(tool)}&outcome={esc(outcome)}&text={esc(text)}&page={p}"
-            links.append(f'<a href="/audit?{qs}">{p}</a>')
-        body += "<p>Pages: " + " ".join(links) + "</p>"
+        body += _pager(page, pages, client, tool, outcome, text, per_page)
     return HTMLResponse(_page("Audit", body, user))
 
 
@@ -907,6 +858,7 @@ _FIELDS: list[tuple[str, str, str, str]] = [
     ("LOG_LEVEL", "Log level", "select", "INFO"),
     ("MCP_MAX_ITEMS", "MCP max items", "int", "50"),
     ("MCP_ALLOWED_IPS", "MCP allowed IPs", "cidr", ""),
+    ("MCP_AUDIT_RETENTION_DAYS", "Audit retention (days)", "int", "90"),
 ]
 
 _SECRETS: list[tuple[str, str]] = [
@@ -1041,7 +993,11 @@ def _validate_fields(form: Any) -> tuple[dict[str, str], list[str]]:
             except ValueError:
                 errors.append(f"{label} must be an integer")
                 continue
-            if n < 1 or n > 65535:
+            if key == "MCP_AUDIT_RETENTION_DAYS":
+                if n < 0 or n > 36500:
+                    errors.append(f"{label} must be 0 (keep forever) or up to 36500 days")
+                    continue
+            elif n < 1 or n > 65535:
                 errors.append(f"{label} must be between 1 and 65535")
                 continue
             updates[key] = str(n)
@@ -1091,7 +1047,9 @@ def _config_input(key: str, label: str, kind: str, value: str) -> str:
         )
         return f"<label>{esc(label)}</label><select name='{key}'>{opts}</select><br>"
     placeholder = (
-        "1-65535" if kind == "int" else ("comma-separated CIDR, empty = all" if kind == "cidr" else "")
+        "0 = keep forever" if key == "MCP_AUDIT_RETENTION_DAYS" else (
+            "1-65535" if kind == "int" else ("comma-separated CIDR, empty = all" if kind == "cidr" else "")
+        )
     )
     return (
         f"<label>{esc(label)}</label>"
@@ -1128,6 +1086,7 @@ def _config_body(
         ("MCP host:port", f"{cfg('MCP_HOST', '0.0.0.0')}:{cfg('MCP_PORT', '8000')}"),
         ("MCP max items", cfg("MCP_MAX_ITEMS", "50")),
         ("MCP allowed IPs", cfg("MCP_ALLOWED_IPS", "(all)")),
+        ("Audit retention (days)", cfg("MCP_AUDIT_RETENTION_DAYS", "90")),
         ("MCP_API_KEY fallback", secret_state("MCP_API_KEY")),
         ("Admin bind", f"{os.getenv('MCP_ADMIN_HOST','127.0.0.1')}:{os.getenv('MCP_ADMIN_PORT','8001')}"),
         ("DB path", str(db.default_db_path())),
@@ -1205,7 +1164,10 @@ def _config_body(
             "<p class='muted'>Sign in as a superadmin to edit settings or restart the server.</p>"
         )
 
-    body.append("<p class='muted'>Current values:</p>" + f"<table>{table}</table>")
+    body.append(
+        "<p class='muted'>Current values:</p>"
+        + f"<div class='card'><div class='table-scroll'><table>{table}</table></div></div>"
+    )
     body.append(howto)
     return "".join(body)
 
@@ -1307,8 +1269,8 @@ async def users_page(request: Request) -> Response:
             f"<td><a href='/users?edit={esc(u['username'])}'>edit</a></td></tr>"
         )
     table = (
-        "<table><tr><th>Username</th><th>Role</th><th>Must change pw</th>"
-        "<th>Last login</th><th></th></tr>" + "".join(trs) + "</table>"
+        "<div class='card'><div class='table-scroll'><table><tr><th>Username</th><th>Role</th><th>Must change pw</th>"
+        "<th>Last login</th><th></th></tr>" + "".join(trs) + "</table></div></div>"
     )
     edit_name = request.query_params.get("edit", "")
     target = db.get_user_by_username(edit_name) if edit_name else None
@@ -1439,6 +1401,7 @@ routes = [
 ]
 
 app = Starlette(routes=routes)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 def main() -> None:

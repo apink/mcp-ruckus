@@ -1,6 +1,8 @@
 """Tests for the SQLite storage layer."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import db
 
 
@@ -123,6 +125,37 @@ class TestAudit:
         summary = db.audit_summary()
         assert summary["total"] == 2
         assert summary["by_outcome"] == {"ok": 1, "denied": 1}
+
+
+class TestAuditRotation:
+    def test_prune_removes_only_old_events(self):
+        db.insert_audit(client="new", tool="t", args=None, outcome="ok", duration_ms=1.0)
+        old_ts = (datetime.now(timezone.utc) - timedelta(days=365)).isoformat()
+        with db.connect() as conn:
+            conn.execute(
+                "INSERT INTO audit_log (ts, client, tool, args, outcome) "
+                "VALUES (?, 'old', 't', '{}', 'ok')",
+                (old_ts,),
+            )
+            conn.commit()
+        assert db.prune_audit(90) == 1
+        rows, total = db.query_audit()
+        assert total == 1
+        assert rows[0]["client"] == "new"
+
+    def test_prune_keeps_recent_events(self):
+        db.insert_audit(client="recent", tool="t", args=None, outcome="ok", duration_ms=1.0)
+        assert db.prune_audit(90) == 0
+        _, total = db.query_audit()
+        assert total == 1
+
+    def test_retention_days_config(self, monkeypatch):
+        monkeypatch.setenv("MCP_AUDIT_RETENTION_DAYS", "7")
+        assert db.audit_retention_days() == 7
+        monkeypatch.setenv("MCP_AUDIT_RETENTION_DAYS", "0")
+        assert db.audit_retention_days() is None
+        monkeypatch.setenv("MCP_AUDIT_RETENTION_DAYS", "not-a-number")
+        assert db.audit_retention_days() == db.DEFAULT_AUDIT_RETENTION_DAYS
 
 
 class TestHealthInfo:

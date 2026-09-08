@@ -236,6 +236,17 @@ def main() -> None:
             "Create a key via the admin GUI (admin.py) or set MCP_API_KEY."
         )
 
+    # Rotate the audit log at startup in case the server was down for a while.
+    retention = db.audit_retention_days()
+    if retention is not None:
+        removed = db.prune_audit(retention)
+        if removed:
+            logger.info(
+                "Audit retention: pruned %d event(s) older than %d days at startup",
+                removed,
+                retention,
+            )
+
     # Build the ASGI app (SSE or streamable-http)
     app = mcp.http_app(transport=transport)
 

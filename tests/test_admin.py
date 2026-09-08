@@ -143,6 +143,24 @@ class TestApiKeyManagement:
         resp = client.post("/keys", data={"name": "x"}, follow_redirects=False)
         assert resp.status_code == 403
 
+    def test_key_reveal_not_in_url(self, operator_client):
+        page = operator_client.get("/keys").text
+        csrf = _csrf_from(page)
+        resp = operator_client.post(
+            "/keys",
+            data={"csrf": csrf, "name": "secret", "tool": ["ap_status"]},
+            follow_redirects=False,
+        )
+        assert resp.status_code in (302, 303)
+        key = db.get_api_key_by_name("secret")["key"]
+        assert key not in resp.headers["location"]
+
+        # The key is shown once via the session flash, then consumed.
+        first = operator_client.get("/keys").text
+        assert key in first
+        second = operator_client.get("/keys").text
+        assert key not in second
+
 
 class TestConfig:
     def _isolate_env(self, monkeypatch, tmp_path):
@@ -190,6 +208,7 @@ class TestConfig:
                 "LOG_LEVEL": "INFO",
                 "MCP_MAX_ITEMS": "50",
                 "MCP_ALLOWED_IPS": "",
+                "MCP_AUDIT_RETENTION_DAYS": "90",
             },
             follow_redirects=False,
         )
@@ -217,6 +236,7 @@ class TestConfig:
                 "LOG_LEVEL": "INFO",
                 "MCP_MAX_ITEMS": "50",
                 "MCP_ALLOWED_IPS": "",
+                "MCP_AUDIT_RETENTION_DAYS": "90",
             },
             follow_redirects=False,
         )
@@ -285,6 +305,7 @@ class TestConfig:
                 "LOG_LEVEL": "INFO",
                 "MCP_MAX_ITEMS": "50",
                 "MCP_ALLOWED_IPS": "",
+                "MCP_AUDIT_RETENTION_DAYS": "90",
             },
             follow_redirects=False,
         )

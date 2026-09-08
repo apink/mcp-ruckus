@@ -15,16 +15,24 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import secrets
 import sqlite3
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent
 
 DEFAULT_ADMIN_PASSWORD = "digantiYA_30"
+
+DEFAULT_AUDIT_RETENTION_DAYS = 90
+_AUDIT_PRUNE_INTERVAL_SECONDS = 300.0
+_last_audit_prune = 0.0
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -87,6 +95,49 @@ def connect() -> sqlite3.Connection:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def audit_retention_days() -> int | None:
+    """Return audit retention in days (``None`` disables rotation).
+
+    Reads ``MCP_AUDIT_RETENTION_DAYS``; ``0`` (or any non-positive value)
+    keeps audit events forever. Invalid values fall back to the default.
+    """
+    raw = os.getenv(
+        "MCP_AUDIT_RETENTION_DAYS", str(DEFAULT_AUDIT_RETENTION_DAYS)
+    ).strip()
+    try:
+        days = int(raw)
+    except ValueError:
+        return DEFAULT_AUDIT_RETENTION_DAYS
+    return days if days > 0 else None
+
+
+def prune_audit(retention_days: int) -> int:
+    """Delete audit events older than ``retention_days`` and return the count."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=retention_days)).isoformat()
+    with connect() as conn:
+        cur = conn.execute("DELETE FROM audit_log WHERE ts < ?", (cutoff,))
+        conn.commit()
+    return cur.rowcount
+
+
+def _maybe_prune_audit() -> None:
+    """Prune expired audit events, throttled to avoid a delete on every insert."""
+    global _last_audit_prune
+    now = time.monotonic()
+    if now - _last_audit_prune < _AUDIT_PRUNE_INTERVAL_SECONDS:
+        return
+    retention = audit_retention_days()
+    if retention is not None:
+        removed = prune_audit(retention)
+        if removed:
+            logger.info(
+                "Audit retention: pruned %d event(s) older than %d days",
+                removed,
+                retention,
+            )
+    _last_audit_prune = now
 
 
 # ── Password hashing ────────────────────────────────────────────────
@@ -324,6 +375,7 @@ def insert_audit(
             ),
         )
         conn.commit()
+    _maybe_prune_audit()
 
 
 def query_audit(
