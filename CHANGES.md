@@ -7,6 +7,7 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-08 | Quickstart: systemd for production | `docs/QUICKSTART.md` — "Start the server" Option B is now systemd (install units + polkit rule, enables the GUI **Restart MCP** button); local Python moved to a dev-only note; troubleshooting row now checks `systemctl status` |
 | 2026-09-08 | Audit log rotation | `db.py` — `prune_audit()` + `audit_retention_days()` (env `MCP_AUDIT_RETENTION_DAYS`, default `90`, `0` = keep forever); expired events deleted on startup and throttled during inserts; `admin.py` Config page gains the setting; `.env.example` + `README.md` documented |
 | 2026-09-08 | Quickstart doc + Hermes auth example | `docs/QUICKSTART.md` — new step-by-step first-run guide (login admin, create API key, connect agent, verify, troubleshooting); `README.md` links it, adds the `Authorization: "Bearer …"` header to the Hermes example, and lists it in More docs |
 | 2026-09-07 | Admin GUI: reveal via session + static assets | `admin.py` — new/regenerated API keys are shown once via a signed session flash (no more `?key=` in the URL); CSS/JS split out to `static/style.css` + `static/app.js` served by Starlette StaticFiles; `Dockerfile` copies `static/` |

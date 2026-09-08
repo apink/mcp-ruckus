@@ -15,6 +15,10 @@ open access. That key is the thread that runs through every step below.
   - `VSZ_HOST` / `VSZ_PORT` / `VSZ_USER` / `VSZ_PASS` (or `VSZ_API_TOKEN`), and/or
   - `inventory/devices.yaml` (copy of `devices.example.yaml`) for ICX switches.
 
+```bash
+cp .env.example .env     # then edit credentials
+```
+
 ## 1. Start the server + admin GUI
 
 The MCP server (`server.py`, port 8000) and the admin GUI (`admin.py`, port
@@ -29,16 +33,33 @@ docker compose up -d --build
 # Admin GUI   → http://localhost:8001
 ```
 
-**Option B — local Python**:
+> In Docker, `.env` is mounted read-only — edit it on the host, then
+> `docker compose restart`. The GUI's **Config** editor and **Restart** button
+> target systemd and are not used inside Docker.
+
+**Option B — systemd** (production; enables the GUI **Restart MCP** button):
+
+1. Put the code at a fixed path (the units assume `/opt/mcp-ruckus`), create a
+   venv, and create a dedicated OS user (`mcp`). Adjust paths/user in the unit
+   files and polkit rule if yours differ.
+2. Install the units and polkit rule, then start them:
 
 ```bash
-python3 -m venv venv && source venv/bin/activate
-pip install -e . pytest pytest-asyncio
+sudo cp deploy/mcp-ruckus.service /etc/systemd/system/
+sudo cp deploy/mcp-ruckus-admin.service /etc/systemd/system/
+sudo cp deploy/50-mcp-ruckus.rules /etc/polkit-1/rules.d/
 
-cp .env.example .env        # then edit credentials
-python3 server.py           # MCP, http://localhost:8000/mcp
-python3 admin.py            # admin GUI, http://localhost:8001  (separate terminal)
+sudo systemctl daemon-reload
+sudo systemctl enable --now mcp-ruckus        # MCP server
+sudo systemctl enable --now mcp-ruckus-admin  # admin GUI (optional)
 ```
+
+Full unit contents, the `mcp` user setup, and the polkit rule are in
+[deploy/systemd.md](../deploy/systemd.md).
+
+> For a quick **local/dev** run without root:
+> `python3 -m venv venv && source venv/bin/activate && pip install -e .`,
+> then `python3 server.py` and `python3 admin.py` in separate terminals.
 
 ## 2. Log into the admin GUI
 
@@ -172,7 +193,7 @@ Per-client keys are managed directly in SQLite (`data/admin.db`, table
 | `401 invalid API key` | Key doesn't match the one in the DB | Regenerate in the GUI and re-copy |
 | `401 no API keys configured` | No key and no `MCP_API_KEY` | Create a key or set `MCP_API_KEY` |
 | `403 IP not allowed` | `MCP_ALLOWED_IPS` excludes the client | Fix the CIDR allowlist in `.env` |
-| Connection refused | Server not running / wrong port | Check `python3 server.py` or `docker compose ps`, and `MCP_PORT` |
+| Connection refused | Server not running / wrong port | Check `systemctl status mcp-ruckus`, `docker compose ps`, or `python3 server.py` (dev), and `MCP_PORT` |
 | Tools listed but calls fail | `sse` vs `streamable-http` mismatch | Match the URL + `transport` on both sides |
 
 ## Going further
