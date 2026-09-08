@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a problem with the server, admin GUI, or a tool.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the fields below.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Commit hash, git tag, or `pip show mcp-ruckus` version.
+      placeholder: "e.g. v0.1.0 / commit ab08810"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands or steps that trigger the problem.
+      placeholder: |
+        1. Run ...
+        2. Call tool ...
+        3. See ...
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or output
+      description: Paste any error output. Redact passwords, tokens, and API keys.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Environment
+      description: OS, Python version, deployment (Docker / systemd / local).
+      placeholder: "Ubuntu 24.04, Python 3.12, systemd"
+    validations:
+      required: false
