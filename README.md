@@ -279,6 +279,11 @@ devices:
     password: "${ICX_BRANCH_PASS}"
 ```
 
+> You can also add, edit, and delete devices from the admin web UI's
+> **Inventory** page instead of editing this file by hand — both write to the
+> same `inventory/devices.yaml` and changes apply live. The GUI accepts either a
+> literal password or a `${VAR_NAME}` reference, exactly like the examples above.
+
 ## Admin web UI
 
 The admin GUI is a **separate process** from the MCP server, so it stays up even when the server is down:
@@ -324,7 +329,7 @@ Every tool call is recorded to the SQLite audit log (client name, tool, redacted
 
 ## Development
 
-Contributing, coding guidelines, and how to run the test suite are in [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
+Contributing, coding guidelines, and how to run the test suite are in [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md). Community guidelines are in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 To quickly check that the server starts and responds:
 

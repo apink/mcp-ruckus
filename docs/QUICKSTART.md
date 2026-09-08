@@ -143,34 +143,9 @@ mcp_servers:
 Then restart the gateway: `systemctl --user restart hermes-gateway` (or however
 you run Hermes).
 
-### OpenClaw
-
-```bash
-openclaw mcp add ruckus --url http://{SERVER_IP}:8000/mcp --transport streamable-http
-```
-
-Then add the header in `~/.openclaw/openclaw.json`:
-
-```json5
-{
-  mcp: {
-    servers: {
-      ruckus: {
-        url: "http://{SERVER_IP}:8000/mcp",
-        transport: "streamable-http",
-        headers: { "Authorization": "Bearer ruck_YOUR_KEY" }
-      }
-    }
-  }
-}
-```
-
-### Claude Code
-
-```bash
-claude mcp add --transport http ruckus http://{SERVER_IP}:8000/mcp \
-  --header "Authorization: Bearer ruck_YOUR_KEY"
-```
+For **OpenClaw** and **Claude Code**, see the [Connect your AI
+assistant](../README.md#connect-your-ai-assistant) section of the README — the
+header is the same `Authorization: "Bearer ruck_YOUR_KEY"`.
 
 **Transport:** `streamable-http` at `/mcp` is the default. For SSE, use the
 `/sse` URL with `MCP_TRANSPORT=sse` on the server and `transport: sse` in the

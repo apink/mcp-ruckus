@@ -7,6 +7,7 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-08 | Community + docs polish | Add `CODE_OF_CONDUCT.md`, issue/PR templates, Dependabot; `README.md` notes the GUI **Inventory** page edits `devices.yaml` and links the CoC; `docs/QUICKSTART.md` §4 points OpenClaw/Claude to README (Hermes kept inline) to avoid duplicating agent configs |
 | 2026-09-08 | Quickstart: SERVER_IP not localhost | `docs/QUICKSTART.md` — agent URLs, admin login, and curl verify now use `{SERVER_IP}` with a "use `localhost` if same machine" note, matching `README.md` |
 | 2026-09-08 | Quickstart: systemd for production | `docs/QUICKSTART.md` — "Start the server" Option B is now systemd (install units + polkit rule, enables the GUI **Restart MCP** button); local Python moved to a dev-only note; prerequisites now spell out per-path requirements (Docker vs systemd vs dev) with a `python3 --version` check; `deploy/systemd.md` documents Ubuntu/systemd + Python 3.12+ prerequisite |
 | 2026-09-08 | Audit log rotation | `db.py` — `prune_audit()` + `audit_retention_days()` (env `MCP_AUDIT_RETENTION_DAYS`, default `90`, `0` = keep forever); expired events deleted on startup and throttled during inserts; `admin.py` Config page gains the setting; `.env.example` + `README.md` documented |
