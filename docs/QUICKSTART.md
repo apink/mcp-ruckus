@@ -10,13 +10,17 @@ open access. That key is the thread that runs through every step below.
 ## 0. Prerequisites
 
 - A machine that can reach your Ruckus gear (vSZ controller and/or ICX switches).
-- Python 3.12+, or Docker.
 - A `.env` file (copy of `.env.example`) with at least:
   - `VSZ_HOST` / `VSZ_PORT` / `VSZ_USER` / `VSZ_PASS` (or `VSZ_API_TOKEN`), and/or
   - `inventory/devices.yaml` (copy of `devices.example.yaml`) for ICX switches.
+- Depending on how you run it:
+  - **Docker** — Docker + Docker Compose installed.
+  - **systemd** — Ubuntu/Debian with systemd, `sudo` access, and Python 3.12+.
+  - **local/dev** — Python 3.12+ only.
 
 ```bash
-cp .env.example .env     # then edit credentials
+python3 --version      # must print 3.12 or newer (skip this for Docker)
+cp .env.example .env   # then edit credentials
 ```
 
 ## 1. Start the server + admin GUI
@@ -25,12 +29,16 @@ The MCP server (`server.py`, port 8000) and the admin GUI (`admin.py`, port
 8001) are **separate processes** — you can run the server alone and skip the
 GUI if you use `MCP_API_KEY` (see [Alternative: skip the GUI](#alternative-skip-the-gui)).
 
+> In the URLs below, replace `{SERVER_IP}` with the IP or hostname of the
+> machine running the server. If the assistant (and your browser) runs on that
+> same machine, use `localhost` instead.
+
 **Option A — Docker** (starts both):
 
 ```bash
 docker compose up -d --build
-# MCP server  → http://localhost:8000/mcp
-# Admin GUI   → http://localhost:8001
+# MCP server  → http://{SERVER_IP}:8000/mcp
+# Admin GUI   → http://{SERVER_IP}:8001
 ```
 
 > In Docker, `.env` is mounted read-only — edit it on the host, then
@@ -39,12 +47,28 @@ docker compose up -d --build
 
 **Option B — systemd** (production; enables the GUI **Restart MCP** button):
 
-1. Put the code at a fixed path (the units assume `/opt/mcp-ruckus`), create a
-   venv, and create a dedicated OS user (`mcp`). Adjust paths/user in the unit
-   files and polkit rule if yours differ.
-2. Install the units and polkit rule, then start them:
+Requires Ubuntu/Debian with systemd, `sudo`, and Python 3.12+ (see
+[Prerequisites](#0-prerequisites)). The shipped units assume the code lives at
+`/opt/mcp-ruckus` and run as a dedicated `mcp` user. If you use different
+paths/users, edit `deploy/mcp-ruckus.service`, `deploy/mcp-ruckus-admin.service`,
+and `deploy/50-mcp-ruckus.rules` to match, then run:
 
 ```bash
+# 1. Place the code and create the venv
+sudo mkdir -p /opt/mcp-ruckus
+sudo cp -r . /opt/mcp-ruckus/          # or: git clone <url> /opt/mcp-ruckus
+cd /opt/mcp-ruckus
+python3 -m venv venv
+venv/bin/pip install -e . pytest pytest-asyncio
+
+# 2. Create the dedicated OS user and hand it the files
+sudo useradd --system --home /opt/mcp-ruckus --shell /usr/sbin/nologin mcp
+sudo chown -R mcp:mcp /opt/mcp-ruckus
+
+# 3. Configure credentials as the service user
+sudo -u mcp cp .env.example .env       # then: sudo -u mcp nano .env
+
+# 4. Install units + polkit rule and start
 sudo cp deploy/mcp-ruckus.service /etc/systemd/system/
 sudo cp deploy/mcp-ruckus-admin.service /etc/systemd/system/
 sudo cp deploy/50-mcp-ruckus.rules /etc/polkit-1/rules.d/
@@ -63,7 +87,7 @@ Full unit contents, the `mcp` user setup, and the polkit rule are in
 
 ## 2. Log into the admin GUI
 
-Open `http://localhost:8001` in a browser.
+Open `http://{SERVER_IP}:8001` in a browser.
 
 | Field | Value |
 |---|---|
@@ -101,7 +125,7 @@ Edit `~/.hermes/config.yaml`:
 ```yaml
 mcp_servers:
   ruckus:
-    url: http://localhost:8000/mcp
+    url: http://{SERVER_IP}:8000/mcp
     transport: streamable-http
     timeout: 120
     connect_timeout: 15
@@ -118,7 +142,7 @@ you run Hermes).
 ### OpenClaw
 
 ```bash
-openclaw mcp add ruckus --url http://localhost:8000/mcp --transport streamable-http
+openclaw mcp add ruckus --url http://{SERVER_IP}:8000/mcp --transport streamable-http
 ```
 
 Then add the header in `~/.openclaw/openclaw.json`:
@@ -128,7 +152,7 @@ Then add the header in `~/.openclaw/openclaw.json`:
   mcp: {
     servers: {
       ruckus: {
-        url: "http://localhost:8000/mcp",
+        url: "http://{SERVER_IP}:8000/mcp",
         transport: "streamable-http",
         headers: { "Authorization": "Bearer ruck_YOUR_KEY" }
       }
@@ -140,7 +164,7 @@ Then add the header in `~/.openclaw/openclaw.json`:
 ### Claude Code
 
 ```bash
-claude mcp add --transport http ruckus http://localhost:8000/mcp \
+claude mcp add --transport http ruckus http://{SERVER_IP}:8000/mcp \
   --header "Authorization: Bearer ruck_YOUR_KEY"
 ```
 
@@ -152,13 +176,13 @@ agent.
 
 ```bash
 # 1. Server alive (no auth needed)
-curl -s http://localhost:8000/health
+curl -s http://{SERVER_IP}:8000/health
 
 # 2. Auth is enforced (should print 401)
-curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8000/mcp
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://{SERVER_IP}:8000/mcp
 
 # 3. Your key is accepted (anything except 401 means auth passed)
-curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8000/mcp \
+curl -s -o /dev/null -w '%{http_code}\n' -X POST http://{SERVER_IP}:8000/mcp \
   -H "Authorization: Bearer ruck_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{}'
