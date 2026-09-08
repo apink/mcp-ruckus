@@ -329,7 +329,7 @@ Every tool call is recorded to the SQLite audit log (client name, tool, redacted
 
 ## Development
 
-Contributing, coding guidelines, and how to run the test suite are in [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md). Community guidelines are in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Contributing, coding guidelines, and how to run the test suite are in [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 To quickly check that the server starts and responds:
 
