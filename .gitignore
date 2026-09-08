@@ -1,4 +1,5 @@
 .env
+.env.bak*
 inventory/devices.yaml
 backups/
 data/

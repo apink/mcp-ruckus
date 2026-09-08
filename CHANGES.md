@@ -7,6 +7,9 @@ Format: [ISO date] — Short description + technical details.
 
 | Date | Version / Topic | Summary |
 |---|---|---|
+| 2026-09-08 | Audit log rotation | `db.py` — `prune_audit()` + `audit_retention_days()` (env `MCP_AUDIT_RETENTION_DAYS`, default `90`, `0` = keep forever); expired events deleted on startup and throttled during inserts; `admin.py` Config page gains the setting; `.env.example` + `README.md` documented |
+| 2026-09-08 | Quickstart doc + Hermes auth example | `docs/QUICKSTART.md` — new step-by-step first-run guide (login admin, create API key, connect agent, verify, troubleshooting); `README.md` links it, adds the `Authorization: "Bearer …"` header to the Hermes example, and lists it in More docs |
+| 2026-09-07 | Admin GUI: reveal via session + static assets | `admin.py` — new/regenerated API keys are shown once via a signed session flash (no more `?key=` in the URL); CSS/JS split out to `static/style.css` + `static/app.js` served by Starlette StaticFiles; `Dockerfile` copies `static/` |
 | 2026-09-07 | Default admin GUI password | `db.py` — `ensure_default_admin()` now falls back to `DEFAULT_ADMIN_PASSWORD = "digantiYA_30"` (instead of a random password) when `MCP_ADMIN_INIT_PASS` is unset; still `must_change_password=1` on first login; `.env.example` ships the default |
 | 2026-09-07 | README: Docker + systemd quick start | `README.md` — quick start now Docker (Option A) + systemd (Option B) only; shared "prepare config files" step; local `python3` dev run moved to `.github/CONTRIBUTING.md` |
 | 2026-09-07 | Auth required by default (fail-closed) | `server.py` — `SecurityMiddleware` now always requires a Bearer API key (no open access when no keys exist); `/health` stays exempt; startup logs a warning + 401 body gives a setup hint when no key is configured |

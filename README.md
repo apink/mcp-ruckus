@@ -66,6 +66,9 @@ You don't need to be a network expert — if you have the IPs and credentials, t
 
 ## Quick start
 
+> Prefer a guided, step-by-step walkthrough — including logging into the admin
+> GUI and creating your first API key? See [docs/QUICKSTART.md](docs/QUICKSTART.md).
+
 ### Prepare your config files
 
 ```bash
@@ -142,7 +145,8 @@ Streamable HTTP is the default. SSE also works — if your agent prefers it, jus
 
 ### Hermes
 
-For Hermes, open `~/.hermes/config.yaml` and add a `mcp_servers` block:
+For Hermes, open `~/.hermes/config.yaml` and add a `mcp_servers` block. Send the
+API key as a Bearer header (the `Bearer ` prefix is required):
 
 ```yaml
 mcp_servers:
@@ -151,6 +155,8 @@ mcp_servers:
     transport: streamable-http
     timeout: 120
     connect_timeout: 15
+    headers:
+      Authorization: "Bearer ruck_YOUR_KEY"
 ```
 
 Using SSE instead? Point `url` to `http://{SERVER_IP}:8000/sse` and set `transport: sse`.
@@ -244,6 +250,7 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 | `MCP_API_KEY` | Fallback single key the AI must send as a Bearer token (see per-client keys below) | - |
 | `MCP_ALLOWED_IPS` | Optional whitelist of IPs allowed to connect | `192.0.2.0/24` |
 | `MCP_DB_PATH` | Where the SQLite DB lives (users, API keys, audit trail) | `./data/admin.db` |
+| `MCP_AUDIT_RETENTION_DAYS` | How long to keep audit events before rotation (`0` = keep forever) | `90` |
 | `MCP_ADMIN_HOST` | Address the admin web UI listens on (`127.0.0.1` = localhost only) | `127.0.0.1` |
 | `MCP_ADMIN_PORT` | Port the admin web UI listens on | `8001` |
 | `MCP_ADMIN_USER` | Default superadmin username (first boot only) | `admin` |
@@ -303,7 +310,7 @@ Instead of one shared `MCP_API_KEY`, you can give **each AI assistant its own ke
 - Keys take effect **immediately** — the MCP server resolves them live, no restart needed.
 - `MCP_API_KEY` still works as a fallback (treated as an unrestricted `"default"` client).
 
-Every tool call is recorded to the SQLite audit log (client name, tool, redacted arguments, outcome, duration) — view and filter it in the admin UI's **Audit** page.
+Every tool call is recorded to the SQLite audit log (client name, tool, redacted arguments, outcome, duration) — view and filter it in the admin UI's **Audit** page. Audit events are rotated automatically: events older than `MCP_AUDIT_RETENTION_DAYS` (default `90`) are pruned on startup and periodically while the server runs.
 
 ## Safety features
 
@@ -329,6 +336,7 @@ To quickly check that the server starts and responds:
 
 | Doc | Content |
 |---|---|
+| [docs/QUICKSTART.md](docs/QUICKSTART.md) | Step-by-step first run: login, API key, connect agent, verify |
 | [docs/TOOLS.md](docs/TOOLS.md) | Complete list of 90 tools |
 | [DOCS_SAFETY.md](DOCS_SAFETY.md) | Safety gates (22 destructive tools) + dry-run preview |
 | [SECURITY.md](SECURITY.md) | Security policy, input validation, credential handling |

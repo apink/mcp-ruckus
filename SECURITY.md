@@ -52,6 +52,7 @@ Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/swit
 - Per-key `allowed_tools` allowlist and `allow_destructive` gate (destructive tools blocked by default)
 - `MCP_API_KEY` remains as a fallback single key (unrestricted `"default"` client)
 - Keys take effect immediately — the MCP server resolves them live per request (no restart)
+- New/regenerated keys are revealed once via a signed session flash, never in the URL query string
 - Implementation: [CONTRIBUTING.md §S4](.github/CONTRIBUTING.md)
 
 ### Audit Trail
@@ -59,6 +60,7 @@ Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/swit
 - Each record: timestamp, client name, client IP, tool, redacted arguments, outcome, duration, destructive flag
 - Sensitive argument values (passwords, tokens, keys) are redacted; the API key itself is never logged
 - Audit logging runs for all authenticated clients (per-key and `MCP_API_KEY` fallback)
+- Audit events rotate automatically: `MCP_AUDIT_RETENTION_DAYS` (default `90`, `0` = keep forever) prunes older events on startup and periodically at runtime
 - Browse and filter the audit trail in the admin GUI (`/audit`)
 
 ### Admin GUI Config & Restart
@@ -79,7 +81,7 @@ All dependencies are regularly updated and audited.
 
 ## Security Testing
 
-- Automated testing with pytest (348 tests, 19 test files)
+- Automated testing with pytest (352 tests, 19 test files)
 - Input validation coverage: 100%
 - Error handling verification
 - Session management testing

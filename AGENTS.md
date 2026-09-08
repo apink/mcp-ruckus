@@ -21,7 +21,7 @@ python3 server.py
 python3 admin.py
 
 # Test (mock adapters, no real hardware)
-pytest tests/ -q          # 348 tests, 19 files
+pytest tests/ -q          # 352 tests, 19 files
 
 # Lint
 ruff check .
@@ -34,6 +34,7 @@ server.py                    # FastMCP entry (streamable-http default, SSE legac
 ├── security.py              # per-client API keys, tool scope, audit trail (SQLite-backed)
 ├── db.py                    # SQLite storage (users, api_keys, audit_log) + WAL + scrypt
 ├── admin.py                 # separate web admin GUI (Starlette, port 8001)
+├── static/                  # admin GUI CSS + JS (served via Starlette StaticFiles)
 ├── adapters/
 │   ├── vsz.py               # vSZ async REST adapter (httpx.AsyncClient)
 │   ├── device_ssh.py        # ICX sync SSH driver (Netmiko)
