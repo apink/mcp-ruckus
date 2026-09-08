@@ -111,6 +111,10 @@ only a bootstrap. Roles are:
      (e.g. `hermes`, `ops-team`).
    - **Allowed tools** — leave empty to allow all 90 tools, or tick a subset.
    - **Allow destructive** — leave off (default); blocks the 22 destructive tools.
+     These are state-changing operations (reboot an AP, disconnect clients,
+     create/modify WLANs, change switch config, save config, …) — enable only
+     for keys you trust to touch the live network. Even when enabled, they still
+     require `confirm=True`.
 3. Submit. The generated key (`ruck_…`) is **shown once — copy it now**. If you
    lose it, regenerate and copy again (the old value is replaced immediately).
 
