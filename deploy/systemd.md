@@ -6,6 +6,8 @@ user must be allowed to restart *only* that unit.
 
 Adjust `/opt/mcp-ruckus` and the `mcp` user to your real paths.
 
+> Requires Ubuntu/Debian Linux with systemd, `sudo` access, and Python 3.12+.
+
 ## 1. Service units
 
 `/etc/systemd/system/mcp-ruckus.service`
@@ -82,13 +84,26 @@ polkit.addRule(function (action, subject) {
 ## 3. Install
 
 ```bash
+# Place the code and create the venv
+sudo mkdir -p /opt/mcp-ruckus
+sudo cp -r . /opt/mcp-ruckus/          # or: git clone <url> /opt/mcp-ruckus
+cd /opt/mcp-ruckus
+python3 -m venv venv
+venv/bin/pip install -e . pytest pytest-asyncio
+
+# Create the service user and hand it the files
 sudo useradd --system --home /opt/mcp-ruckus --shell /usr/sbin/nologin mcp
 sudo chown -R mcp:mcp /opt/mcp-ruckus
 
+# Configure credentials as the service user
+sudo -u mcp cp .env.example .env       # then: sudo -u mcp nano .env
+
+# Install units + polkit rule
 sudo cp deploy/mcp-ruckus.service /etc/systemd/system/
 sudo cp deploy/mcp-ruckus-admin.service /etc/systemd/system/
 sudo cp deploy/50-mcp-ruckus.rules /etc/polkit-1/rules.d/
 
+# Start
 sudo systemctl daemon-reload
 sudo systemctl enable --now mcp-ruckus mcp-ruckus-admin
 ```
