@@ -679,7 +679,12 @@ async def inventory_page(request: Request) -> Response:
             target = d
             break
 
-    body = f'<div class="page-head"><h2>Device Inventory</h2></div>{table}{_inventory_form(target, user)}'
+    note = (
+        "<p class='muted'>These devices are stored in the same file "
+        f"<code>inventory/devices.yaml</code> (<code>{esc(str(inv_manager.INVENTORY_PATH))}</code>) "
+        "— changes apply live, no restart needed. Passwords are never shown back.</p>"
+    )
+    body = f'<div class="page-head"><h2>Device Inventory</h2></div>{note}{table}{_inventory_form(target, user)}'
     return HTMLResponse(_page("Inventory", body, user, request.query_params.get("msg", "")))
 
 
@@ -1158,7 +1163,12 @@ def _config_body(
         "<p class='muted'>Secrets are never shown here, only set/rotated.</p></details>"
     )
 
-    body: list[str] = ['<div class="page-head"><h2>Configuration</h2></div>']
+    body: list[str] = [
+        '<div class="page-head"><h2>Configuration</h2></div>',
+        "<p class='muted'>These settings read and write the same file "
+        f"<code>.env</code> (<code>{esc(str(env_path))}</code>) — most changes apply "
+        "after you restart the MCP server. Secrets are write-only (never shown back).</p>",
+    ]
     if errors:
         body.append(_alert("; ".join(errors), "error"))
 
