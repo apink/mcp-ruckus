@@ -70,6 +70,24 @@ async def _controller_stats() -> dict[str, Any]:
     return data
 
 
+async def _controller_statistics(controller_id: str | None = None,
+                                 interval: str = "QUARTER",
+                                 size: int = 32) -> dict[str, Any]:
+    adapter = VsZRestAdapter()
+    result = await adapter.login()
+    if "error" in result:
+        return {"error": result["error"], "detail": result.get("detail", "")}
+    data = await adapter.controller_statistics(
+        controller_id=controller_id, interval=interval, size=size)
+    if "error" in data:
+        return data
+    envelope = list_result(data.get("samples", []), limit=data.get("size"),
+                           hint="set interval=HOUR/DAY for longer history; size caps samples")
+    envelope["controller_id"] = data.get("controller_id", "")
+    envelope["interval"] = data.get("interval", "")
+    return envelope
+
+
 def register_tools(mcp: FastMCP) -> None:
     """Register vSZ system/controller tools."""
     @mcp.tool()
@@ -94,3 +112,21 @@ def register_tools(mcp: FastMCP) -> None:
         Requires admin-level vSZ credentials (read-only users get 'not_authenticated').
         """
         return await _controller_stats()
+
+    @mcp.tool()
+    async def controller_statistics(controller_id: str | None = None,
+                                    interval: str = "QUARTER",
+                                    size: int = 32) -> dict[str, Any]:
+        """Controller system statistics — time-series CPU, disk, memory, and per-port traffic.
+
+        Retrieves system performance samples for a vSZ controller. Requires
+        admin-level vSZ credentials. If controller_id is omitted, the first
+        controller is resolved automatically.
+
+        Args:
+            controller_id: Controller UUID (auto-resolved when omitted).
+            interval: Sampling interval — QUARTER (default), HOUR, or DAY.
+            size: Number of samples to return (default 32, max 100).
+        """
+        return await _controller_statistics(controller_id=controller_id,
+                                            interval=interval, size=size)

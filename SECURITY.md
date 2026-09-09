@@ -83,7 +83,7 @@ All dependencies are regularly updated and audited.
 
 ## Security Testing
 
-- Automated testing with pytest (362 tests, 19 test files)
+- Automated testing with pytest (369 tests, 20 test files)
 - Input validation coverage: 100%
 - Error handling verification
 - Session management testing

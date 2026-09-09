@@ -194,6 +194,31 @@ class MockVsZRestAdapter:
             "note": "CPU/memory/storage not exposed by vSZ public API",
         }
 
+    async def controller_statistics(self, controller_id: str | None = None,
+                                    interval: str = "QUARTER",
+                                    size: int = 32) -> dict[str, Any]:
+        sample = {
+            "cpId": "f214c803-c88f-40f8-83d5-a6e37a9840de",
+            "timestamp": 1419877800000,
+            "cpu": {"percent": 8.78, "maxPercent": 32.85, "minPercent": 3.78},
+            "disk": {"total": 71417208, "free": 70844653,
+                     "maxFree": 70845604, "minFree": 70843696},
+            "memory": {"percent": 77.59, "maxPercent": 77.61, "minPercent": 77.58},
+            "control": {"rxBps": 898, "txBps": 293, "rxBytes": 101038,
+                        "txBytes": 32964, "rxDropped": 0, "txDropped": 0,
+                        "rxPackets": 761, "txPackets": 209},
+            "management": {"rxBps": 216, "txBps": 139, "rxBytes": 24328,
+                           "txBytes": 15641, "rxDropped": 0, "txDropped": 0,
+                           "rxPackets": 146, "txPackets": 108},
+        }
+        samples = [dict(sample) for _ in range(min(size, 3))]
+        return {
+            "controller_id": controller_id or "f214c803-c88f-40f8-83d5-a6e37a9840de",
+            "interval": interval,
+            "size": size,
+            "samples": samples,
+        }
+
 
 class MockRuckusDeviceDriver:
     """Drop-in mock for RuckusDeviceDriver."""

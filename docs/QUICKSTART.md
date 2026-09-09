@@ -126,7 +126,7 @@ only a bootstrap. Roles are:
    - **Name** — a label recorded against every tool call in the audit log
      (e.g. `hermes`, `ops-team`).
    - **Scope** — choose **Selected tools** (default, pre-filled with the read-only
-     **Most used tools** set, ~17 tools) or **All tools** (all 90). "All tools"
+     **Most used tools** set, ~17 tools) or **All tools** (all 91). "All tools"
      sends every tool schema to the agent (heavy on tokens/context); keep the
      lean set unless you need more.
    - **Allow destructive** — leave off (default); blocks the 22 destructive tools.
@@ -221,7 +221,7 @@ Per-client keys are managed directly in SQLite (`data/admin.db`, table
 ## Going further
 
 - [README](../README.md) — overview, config reference, safety features
-- [docs/TOOLS.md](TOOLS.md) — the complete 90-tool reference
+- [docs/TOOLS.md](TOOLS.md) — the complete 91-tool reference
 - [deploy/systemd.md](../deploy/systemd.md) — systemd units + GUI "Restart MCP"
 - [deploy/native.md](../deploy/native.md) — cross-platform `run.py` launcher
 - [SECURITY.md](../SECURITY.md) — security policy and credential handling

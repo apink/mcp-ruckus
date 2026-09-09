@@ -3,7 +3,12 @@ from __future__ import annotations
 
 import pytest
 
-from tools.vsz_system import _license_status, _zone_ap_list, _zone_status
+from tools.vsz_system import (
+    _controller_statistics,
+    _license_status,
+    _zone_ap_list,
+    _zone_status,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -54,3 +59,31 @@ class TestLicenseStatus:
         assert isinstance(result, dict)
         assert "total_license" in result
         assert result["total_license"] == 100
+
+
+class TestControllerStatistics:
+    async def test_returns_envelope(self):
+        result = await _controller_statistics()
+        assert isinstance(result, dict)
+        assert "items" in result
+        assert "total" in result
+        assert "controller_id" in result
+        assert "interval" in result
+        assert result["interval"] == "QUARTER"
+
+    async def test_has_stat_fields(self):
+        result = await _controller_statistics()
+        sample = result["items"][0]
+        assert "cpu" in sample
+        assert "memory" in sample
+        assert "disk" in sample
+        assert "management" in sample
+
+    async def test_size_caps_samples(self):
+        result = await _controller_statistics(size=2)
+        assert len(result["items"]) == 2
+
+    async def test_passes_controller_id(self):
+        result = await _controller_statistics(
+            controller_id="f214c803-c88f-40f8-83d5-a6e37a9840de")
+        assert result["controller_id"] == "f214c803-c88f-40f8-83d5-a6e37a9840de"

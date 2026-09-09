@@ -1,9 +1,9 @@
 ---
 name: ruckus-mcp
-description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 90 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
+description: Ruckus wireless (vSZ) and switching (ICX) MCP server — 91 tools for AP monitoring, client analytics, RF optimization, WLAN management, switch management, PoE, LLDP, and diagnostics. Use when working with Ruckus vSZ or ICX infrastructure.
 ---
 
-# Ruckus MCP Skill — 90 tools
+# Ruckus MCP Skill — 91 tools
 
 ## How to Install This Skill
 
@@ -28,12 +28,12 @@ Make sure the MCP server is running and registered in your agent before loading 
 Full descriptions in [docs/TOOLS.md](docs/TOOLS.md).
 
 ```
-vSZ (31): ap_status, ap_detail, ap_radio_stats, ap_down, client_search, ap_high_client_count,
+vSZ (32): ap_status, ap_detail, ap_radio_stats, ap_down, client_search, ap_high_client_count,
           zone_status, zone_ap_list, license_status, radius_list, ssid_list, ssid_list_all,
           ssid_detail, create_wlan, alert_events, client_roaming, rogue_client_query, ap_neighbors,
           optimize_wifi_rf, apply_rf_recommendation, apply_ap_config, alarm_list, domain_list,
           toggle_wlan, modify_wlan, reboot_ap, disconnect_client, wlan_traffic_stats,
-          ap_traffic_stats, zone_traffic_stats, controller_stats
+          ap_traffic_stats, zone_traffic_stats, controller_stats, controller_statistics
 
 ICX (50): ruckus_device_info, ruckus_device_status,
           ruckus_device_interfaces_summary, ruckus_device_interfaces_down,

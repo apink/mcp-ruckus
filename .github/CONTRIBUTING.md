@@ -91,7 +91,7 @@ def _validate_ports_spec(ports_spec: str) -> str:
     return ports_spec
 ```
 
-> **TODO (gap)**: `_validate_uuid()` for vSZ `zone_id`/`wlan_id` is documented as a rule but **not yet implemented** — see S2.
+> **TODO (gap)**: `_validate_uuid()` is now implemented in `adapters/vsz.py` and applied to `controller_statistics` (`/controller/{id}/statistics`); the WLAN methods (`get_wlan_detail`/`modify_wlan`/`create_wlan`/`enable_disable_wlan`) still need it — see S2.
 
 **Implementation in SSH adapter**:
 ```python
@@ -112,7 +112,7 @@ output = conn.send_command_timing(f"ping {ip} source {source}")
 - [x] VLAN ID: `int()` cast + range check (1-4094)
 - [x] Source IP: `_validate_ipv4()`
 - [x] Port list: `_validate_ports_spec()` — `to`/`ethernet` keywords
-- [ ] UUID: `_validate_uuid()` — **not yet implemented**
+- [~] UUID: `_validate_uuid()` — implemented for `controller_statistics`; WLAN methods pending
 
 ---
 
@@ -121,7 +121,7 @@ output = conn.send_command_timing(f"ping {ip} source {source}")
 **Issue**: `zone_id` and `wlan_id` directly to URL without validation.
 Can manipulate REST API path.
 
-**Current status**: NOT yet implemented. `get_wlan_detail()` currently constructs the URL directly:
+**Current status**: partially implemented. `_validate_uuid()` exists in `adapters/vsz.py` and is applied to the new `controller_statistics` endpoint; `get_wlan_detail()` and the other WLAN methods still construct their URLs directly:
 
 ```python
 # ⚠️ CURRENT (gap) — no UUID validation
@@ -531,7 +531,7 @@ backups/
 
 ### Security
 - [x] All SSH command inputs validated (`_validate_port`, `_validate_mac`, `_validate_ipv4`, `_validate_ipv6`, `_validate_ports_spec`)
-- [ ] `zone_id`, `wlan_id` UUID-validated before URL construction — **TODO (not yet implemented)**
+- [~] `zone_id`, `wlan_id` UUID-validated before URL construction — `_validate_uuid()` implemented for `controller_statistics`; WLAN methods pending
 - [x] No hardcoded credentials
 - [x] No password/token in logs
 - [x] `.env` in `.gitignore`
@@ -555,16 +555,16 @@ backups/
 ### Documentation
 - [x] `CHANGES.md` updated with issue tracking
 - [x] `SKILL.md` updated for new tools
-- [x] `README.md` tool count synced (81 tools)
-- [x] 187 pytest tests pass (12 test files, mock adapters, zero real hardware)
-- [x] Tool count verified: 81 tools registered
+- [x] `README.md` tool count synced (91 tools)
+- [x] 369 pytest tests pass (20 test files, mock adapters, zero real hardware)
+- [x] Tool count verified: 91 tools registered
 - [x] Integration tested vs production vSZ
 - [x] LLDP + PoE tested live: ICX7450-24-HPOE + ICX7150-48-POEF
 
 ---
 
-**Last updated**: 2026-09-07
-**Status**: Production-ready with 1 known gap: vSZ UUID validation not yet implemented (see S2). Full async. 90 tools. Rate limiting enabled (vSZ + ICX). Per-client API keys + audit trail enabled.
+**Last updated**: 2026-09-09
+**Status**: Production-ready with 1 known gap: vSZ UUID validation partially implemented (see S2) — `_validate_uuid()` exists and is applied to `controller_statistics`, but the WLAN methods (`get_wlan_detail`/`modify_wlan`/`create_wlan`/`enable_disable_wlan`) remain unvalidated. Full async. 91 tools. Rate limiting enabled (vSZ + ICX). Per-client API keys + audit trail enabled.
 
 ## Backlog — Future Development
 

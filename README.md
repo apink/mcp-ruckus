@@ -24,7 +24,7 @@ How it works, in one picture:
 You (plain English)  →  AI assistant  →  this server (MCP)  →  your Ruckus gear
 ```
 
-The server speaks **MCP** (Model Context Protocol), the standard way AI tools talk to external programs. It exposes **90 tools** for monitoring and managing Ruckus wireless and switching gear.
+The server speaks **MCP** (Model Context Protocol), the standard way AI tools talk to external programs. It exposes **91 tools** for monitoring and managing Ruckus wireless and switching gear.
 
 ### Jargon, in plain words
 
@@ -45,7 +45,7 @@ The server speaks **MCP** (Model Context Protocol), the standard way AI tools ta
 
 ## What can it do?
 
-- **WiFi (vSZ)** — 31 tools: see AP status, radios, and neighbors; count clients per AP; optimize RF channels automatically; manage WLANs; traffic stats; alarms; rogue-AP detection; track clients; controller health.
+- **WiFi (vSZ)** — 32 tools: see AP status, radios, and neighbors; count clients per AP; optimize RF channels automatically; manage WLANs; traffic stats; alarms; rogue-AP detection; track clients; controller health.
 - **Switches (ICX)** — 50 tools: device info/status, interfaces, VLANs, routing (IPv4 + IPv6, incl. static route add/delete), PoE, LLDP neighbors, ARP, fiber optic health, syslog, cable diagnostics, SFP, config backup + drift detection, port/VLAN changes, time/NTP configuration (timezone, clock set, NTP servers), and config save.
 - **Inventory** — 6 tools to list and manage the devices you've registered.
 - **Connectivity** — 3 tools to quickly check reachability.
@@ -150,7 +150,7 @@ Point the GUI's restart button at it by setting
 
 ## Connect your AI assistant
 
-Now that the server is running, your next step is to introduce it to your AI assistant (Hermes, OpenClaw, Claude Code, etc.). Once connected, the 90 tools will show up inside the assistant and you can use them just by asking.
+Now that the server is running, your next step is to introduce it to your AI assistant (Hermes, OpenClaw, Claude Code, etc.). Once connected, the 91 tools will show up inside the assistant and you can use them just by asking.
 
 > Replace `{SERVER_IP}` with the IP or hostname of the machine running the server. If the assistant runs on the same computer, you can use `localhost`.
 
@@ -333,7 +333,7 @@ On first boot it creates a default `admin` superadmin with password `digantiYA_3
 Instead of one shared `MCP_API_KEY`, you can give **each AI assistant its own key** with its own scope. Keys live in SQLite and are managed through the **admin web UI** (see above):
 
 - **API Keys** page — create a key with a `name` (recorded in the audit log), a `Scope` choice (**Selected tools** or **All tools**), and an `allow_destructive` toggle (default off, blocks the 22 destructive tools). New keys default to **Selected tools** with the read-only **Most used tools** set pre-filled.
-- **Most used tools preset** — one click scopes a key to the curated read-only `lean.LEAN_TOOLS` set (~17 of 90 tools), ideal for AI assistants that only need search/status/summary.
+- **Most used tools preset** — one click scopes a key to the curated read-only `lean.LEAN_TOOLS` set (~17 of 91 tools), ideal for AI assistants that only need search/status/summary.
 - The `tools/list` response is filtered to the key's scope too — a scoped key only receives the schemas for the tools it may call, cutting token/context overhead (not just blocking calls).
 - Keys take effect **immediately** — the MCP server resolves them live, no restart needed.
 - `MCP_API_KEY` still works as a fallback (treated as an unrestricted `"default"` client).
@@ -365,7 +365,7 @@ To quickly check that the server starts and responds:
 | Doc | Content |
 |---|---|
 | [docs/QUICKSTART.md](docs/QUICKSTART.md) | Step-by-step first run: login, API key, connect agent, verify |
-| [docs/TOOLS.md](docs/TOOLS.md) | Complete list of 90 tools |
+| [docs/TOOLS.md](docs/TOOLS.md) | Complete list of 91 tools |
 | [DOCS_SAFETY.md](DOCS_SAFETY.md) | Safety gates (22 destructive tools) + dry-run preview |
 | [SECURITY.md](SECURITY.md) | Security policy, input validation, credential handling |
 | [CHANGES.md](CHANGES.md) | Changelog + release notes |

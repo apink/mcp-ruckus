@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import time
 from typing import Any
 
@@ -14,6 +15,19 @@ from adapters.config import VsZConfig
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
+
+UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+_STATS_INTERVALS = frozenset({"QUARTER", "HOUR", "DAY"})
+
+
+def _validate_uuid(value: str) -> str:
+    """Validate a UUID string (RFC 4122 format) to prevent URL injection."""
+    if not UUID_RE.match(value):
+        raise ValueError(f"Invalid UUID format: {value!r}")
+    return value
 
 
 class VsZRestAdapter:
@@ -601,3 +615,39 @@ class VsZRestAdapter:
             "nodes": summary,
             "note": "CPU/memory/storage not exposed by vSZ public API",
         }
+
+    async def controller_statistics(self, controller_id: str | None = None,
+                                    interval: str = "QUARTER",
+                                    size: int = 32) -> dict[str, Any]:
+        """Retrieve controller system statistics (CPU, disk, memory, port traffic)."""
+        cid = controller_id
+        if not cid:
+            data = await self._request("/controller")
+            if "error" in data:
+                return data
+            controllers = data.get("list", [])
+            if not controllers:
+                return {"error": "no_controller", "detail": "No controller found"}
+            cid = controllers[0].get("id") or controllers[0].get("cpId") or ""
+        if not cid:
+            return {"error": "no_controller_id", "detail": "Unable to resolve controller id"}
+        try:
+            _validate_uuid(cid)
+        except ValueError as exc:
+            return {"error": "invalid_controller_id", "detail": str(exc)}
+
+        interval = (interval or "QUARTER").upper()
+        if interval not in _STATS_INTERVALS:
+            return {"error": "invalid_interval",
+                    "detail": "interval must be QUARTER, HOUR, or DAY"}
+        size = max(1, min(int(size), 100))
+
+        data = await self._request(
+            f"/controller/{cid}/statistics",
+            params={"interval": interval, "size": str(size)},
+        )
+        if "error" in data:
+            return data
+        samples = data if isinstance(data, list) else [data]
+        return {"controller_id": cid, "interval": interval, "size": size,
+                "samples": samples}

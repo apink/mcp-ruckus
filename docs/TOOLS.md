@@ -1,6 +1,6 @@
 # Tool Reference — MCP Ruckus
 
-Total **90 tools** (31 vSZ + 50 ICX + 6 inventory + 3 connectivity).
+Total **91 tools** (32 vSZ + 50 ICX + 6 inventory + 3 connectivity).
 
 ## Response envelope
 
@@ -34,7 +34,7 @@ List-returning tools now return a consistent envelope instead of a bare array:
 | `apply_rf_recommendation` | Push optimization results to APs (confirm gate) |
 | `apply_ap_config` | Manual channel/power override (confirm gate) |
 
-## vSZ WLAN Tools (7)
+## vSZ WLAN Tools (6)
 
 | Tool | Description |
 |---|---|
@@ -61,7 +61,7 @@ List-returning tools now return a consistent envelope instead of a bare array:
 | `ap_traffic_stats` | Per-AP rx/tx MB + client count |
 | `zone_traffic_stats` | Per-zone rx/tx MB + AP count + active WLANs |
 
-## vSZ Monitoring Tools (6)
+## vSZ Monitoring Tools (7)
 
 | Tool | Description |
 |---|---|
@@ -71,6 +71,7 @@ List-returning tools now return a consistent envelope instead of a bare array:
 | `alarm_list` | Active alarms with severity/time filter |
 | `rogue_client_query` | Rogue AP detection |
 | `controller_stats` | Controller node info + uptime |
+| `controller_statistics` | Controller system statistics — time-series CPU, disk, memory, per-port traffic |
 
 ## vSZ System Tools (3)
 
