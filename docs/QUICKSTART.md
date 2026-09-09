@@ -33,7 +33,7 @@ GUI if you use `MCP_API_KEY` (see [Alternative: skip the GUI](#alternative-skip-
 > machine running the server. If the assistant (and your browser) runs on that
 > same machine, use `localhost` instead.
 
-**Option A — Docker** (starts both):
+**Option A — Docker (recommended for production)**:
 
 ```bash
 docker compose up -d --build
@@ -45,13 +45,15 @@ docker compose up -d --build
 > `docker compose restart`. The GUI's **Config** editor and **Restart** button
 > target the non-Docker deployments (systemd/native) and are not used inside Docker.
 
-**Option B — systemd** (production; enables the GUI **Restart MCP** button):
+**Option B — systemd (native Linux production)**:
 
-Requires Ubuntu/Debian with systemd, `sudo`, and Python 3.12+ (see
-[Prerequisites](#0-prerequisites)). The shipped units assume the code lives at
-`/opt/mcp-ruckus` and run as a dedicated `mcp` user. If you use different
-paths/users, edit `deploy/mcp-ruckus.service`, `deploy/mcp-ruckus-admin.service`,
-and `deploy/50-mcp-ruckus.rules` to match, then run:
+For Ubuntu/Debian without Docker: automatic restart on crash, boot start, and a
+working GUI **Restart MCP** button. Requires Ubuntu/Debian with systemd, `sudo`,
+and Python 3.12+ (see [Prerequisites](#0-prerequisites)). The shipped units
+assume the code lives at `/opt/mcp-ruckus` and run as a dedicated `mcp` user. If
+you use different paths/users, edit `deploy/mcp-ruckus.service`,
+`deploy/mcp-ruckus-admin.service`, and `deploy/50-mcp-ruckus.rules` to match,
+then run:
 
 ```bash
 # 1. Place the code and create the venv
@@ -81,16 +83,18 @@ sudo systemctl enable --now mcp-ruckus-admin  # admin GUI (optional)
 Full unit contents, the `mcp` user setup, and the polkit rule are in
 [deploy/systemd.md](../deploy/systemd.md).
 
-**Option C — native (any OS: Linux without systemd, macOS, Windows)**:
+**Option C — native launcher (any other OS: macOS, Windows, Linux without systemd)**:
 
 ```bash
 python run.py start      # launches MCP server + admin GUI in the background
 python run.py status
 ```
 
-Then set `MCP_RESTART_CMD=python run.py restart` in `.env` so the GUI's
-**Restart MCP** button works too. See [deploy/native.md](../deploy/native.md)
-for launchd (macOS), Task Scheduler (Windows), and cron (Linux).
+This is a **simple launcher** (no automatic restart on crash) — fine for
+home/lab or a single host; prefer Docker or systemd for production. Then set
+`MCP_RESTART_CMD=python run.py restart` in `.env` so the GUI's **Restart MCP**
+button works too. See [deploy/native.md](../deploy/native.md) for launchd
+(macOS), Task Scheduler (Windows), and cron (Linux).
 
 > For a quick **local/dev** run without root:
 > `python3 -m venv venv && source venv/bin/activate && pip install -e .`,
@@ -211,7 +215,7 @@ Per-client keys are managed directly in SQLite (`data/admin.db`, table
 | `401 invalid API key` | Key doesn't match the one in the DB | Regenerate in the GUI and re-copy |
 | `401 no API keys configured` | No key and no `MCP_API_KEY` | Create a key or set `MCP_API_KEY` |
 | `403 IP not allowed` | `MCP_ALLOWED_IPS` excludes the client | Fix the CIDR allowlist in `.env` |
-| Connection refused | Server not running / wrong port | Check `systemctl status mcp-ruckus`, `docker compose ps`, or `python3 server.py` (dev), and `MCP_PORT` |
+| Connection refused | Server not running / wrong port | Check `systemctl status mcp-ruckus`, `docker compose ps`, `python run.py status`, or `python3 server.py` (dev), and `MCP_PORT` |
 | Tools listed but calls fail | `sse` vs `streamable-http` mismatch | Match the URL + `transport` on both sides |
 
 ## Going further
@@ -219,4 +223,5 @@ Per-client keys are managed directly in SQLite (`data/admin.db`, table
 - [README](../README.md) — overview, config reference, safety features
 - [docs/TOOLS.md](TOOLS.md) — the complete 90-tool reference
 - [deploy/systemd.md](../deploy/systemd.md) — systemd units + GUI "Restart MCP"
+- [deploy/native.md](../deploy/native.md) — cross-platform `run.py` launcher
 - [SECURITY.md](../SECURITY.md) — security policy and credential handling

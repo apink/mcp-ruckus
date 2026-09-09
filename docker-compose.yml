@@ -11,7 +11,7 @@ services:
       - MCP_TRANSPORT=streamable-http
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONUNBUFFERED=1
-      - TZ=${TZ:-Asia/Jakarta}
+      - TZ=${TZ:-UTC}
     volumes:
       # Mount .env for credentials (read-only)
       - ./.env:/app/.env:ro
@@ -48,10 +48,10 @@ services:
       - MCP_DB_PATH=./data/admin.db
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONUNBUFFERED=1
-      - TZ=${TZ:-Asia/Jakarta}
+      - TZ=${TZ:-UTC}
     volumes:
       # .env is read-only in Docker: edit it on the host, then `docker compose restart`.
-      # (The GUI's .env editor + restart button target the systemd deployment.)
+      # (The GUI's .env editor + restart button target the non-Docker deployments.)
       - ./.env:/app/.env:ro
       # Directory mount (rw) so inventory CRUD persists via atomic rename.
       - ./inventory:/app/inventory

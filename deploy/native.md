@@ -1,5 +1,10 @@
 # Running natively on any OS (no systemd, no Docker)
 
+> This is a **simple launcher** — it does not restart processes that crash and
+> provides no resource isolation. For production, prefer Docker (recommended) or
+> [systemd.md](systemd.md) on Linux. Use `run.py` for macOS, Windows, or
+> Linux-without-systemd home/lab setups.
+
 For Linux without systemd, macOS, or Windows, use the bundled cross-platform
 launcher `run.py`. It starts both `server.py` (MCP) and `admin.py` (GUI) in the
 background using only the Python standard library, and records their PIDs so

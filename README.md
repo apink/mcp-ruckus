@@ -98,7 +98,9 @@ The MCP server listens on `0.0.0.0:8000` and serves Streamable HTTP at
 `http://{SERVER_IP}:8000/mcp` (SSE is also available at `/sse` if you set
 `MCP_TRANSPORT=sse`).
 
-### Option A — run with Docker
+Three ways to run it, in order of preference:
+
+### Production (recommended) — Docker
 
 ```bash
 docker compose up -d --build
@@ -113,23 +115,25 @@ This starts both processes:
 > **Restart** button target the non-Docker deployments (systemd/native) and are
 > not used inside Docker.
 
-### Option B — run under systemd (with GUI restart)
+### Native Linux production — systemd
 
-The admin GUI's **Restart MCP** button runs whatever `MCP_RESTART_CMD` says
-(default `systemctl restart mcp-ruckus`). Under systemd, grant the GUI's OS
-user permission to restart only that unit (polkit rule). Full setup — unit
-files, polkit rule, and commands — is in
-[deploy/systemd.md](deploy/systemd.md).
+For Ubuntu/Debian without Docker, run under systemd: automatic restart on
+crash, boot start, journald logging, and a GUI **Restart MCP** button that works
+without a password (polkit rule). The button runs whatever `MCP_RESTART_CMD`
+says (default `systemctl restart mcp-ruckus`). Full setup — unit files, polkit
+rule, and commands — is in [deploy/systemd.md](deploy/systemd.md).
 
 ```bash
 sudo systemctl enable --now mcp-ruckus        # MCP server
 sudo systemctl enable --now mcp-ruckus-admin  # admin GUI (optional)
 ```
 
-### Option C — run natively on any OS (no systemd)
+### Any other OS — native launcher (`run.py`)
 
-For Linux without systemd, macOS, or Windows, use the bundled cross-platform
-launcher:
+For macOS, Windows, or Linux without systemd, use the bundled cross-platform
+launcher. This is a **simple launcher** — it has no automatic restart on crash
+— so use it for home/lab or single-host setups; prefer Docker or systemd for
+production:
 
 ```bash
 python run.py start      # launches MCP server + admin GUI in the background
@@ -378,4 +382,3 @@ MIT License — see [LICENSE](LICENSE).
 - Ruckus Networks (vSZ, ICX)
 - FastMCP 3.4.2
 - Netmiko (ICX SSH)
-- Thanks to UII Jogjakarta :)

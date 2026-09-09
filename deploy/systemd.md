@@ -7,6 +7,10 @@ user must be allowed to restart *only* that unit.
 Adjust `/opt/mcp-ruckus` and the `mcp` user to your real paths.
 
 > Requires Ubuntu/Debian Linux with systemd, `sudo` access, and Python 3.12+.
+>
+> This is the recommended **native Linux production** path (auto-restart on
+> crash, boot start, journald). Prefer Docker if you use containers; see
+> [native.md](native.md) for other OSes.
 
 ## 1. Service units
 
