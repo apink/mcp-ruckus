@@ -51,6 +51,16 @@ h3{font-size:16px;margin:1.2rem 0 .6rem;color:var(--ink);font-weight:600}
 .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:.4rem}
 .stat .v{font-size:20px;font-weight:700;word-break:break-word;letter-spacing:-.01em}
 
+.dash-cols{display:grid;grid-template-columns:2fr 1fr;gap:1.1rem;margin-top:.25rem;align-items:start}
+.dash-cols .card{margin:.9rem 0 0}
+.dash-cols h3{margin-top:.2rem}
+.quick{list-style:none;margin:.4rem 0 0;padding:0;display:grid;gap:.5rem}
+.quick a{display:flex;flex-direction:column;padding:.6rem .75rem;border:1px solid var(--border);
+  border-radius:var(--radius-input);background:var(--bg);text-decoration:none}
+.quick a b{font-size:13px;color:var(--ink);font-weight:600}
+.quick a span{font-size:12px;color:var(--text-2)}
+.quick a:hover{border-color:var(--primary);background:var(--surface);text-decoration:none}
+
 .tools{width:100%;max-width:none;border:1px solid var(--border);border-radius:var(--radius);
   padding:.9rem 1rem;background:var(--surface);margin:.4rem 0}
 .tool-actions{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;
@@ -70,10 +80,6 @@ pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radi
  padding:.8rem 1rem;overflow:auto;font-size:12px;line-height:1.5;color:var(--ink);font-family:var(--mono)}
 code{background:#F4F4F5;padding:.05rem .3rem;border-radius:4px;font-size:12px;font-family:var(--mono)}
 pre code{background:none;padding:0}
-.howto{margin:.4rem 0 0 1.3rem;padding:0}
-.howto li{margin:.55rem 0}
-.howto pre{margin:.35rem 0 .6rem}
-details.card summary{cursor:pointer;font-weight:600;color:var(--ink);font-size:15px;margin-bottom:.5rem}
 .reveal{background:var(--success-tint);border:1px solid #A7F3D0;border-radius:var(--radius-input);
  padding:.9rem 1rem;margin-bottom:1rem}
 .reveal-label{font-size:12px;color:var(--success-text);margin-bottom:.45rem}
@@ -81,15 +87,16 @@ details.card summary{cursor:pointer;font-weight:600;color:var(--ink);font-size:1
 .reveal-key{font-family:var(--mono);background:var(--surface);border:1px solid #D1FAE5;border-radius:var(--radius-input);
  padding:.4rem .6rem;font-size:13px;word-break:break-all}
 
-table{border-collapse:collapse;width:100%}
-th,td{text-align:left;padding:10px 12px;font-size:13px;vertical-align:top;border-bottom:1px solid var(--border)}
+table{border-collapse:separate;border-spacing:0;width:100%}
+th,td{text-align:left;padding:11px 14px;font-size:13px;vertical-align:top;border-bottom:1px solid var(--border)}
 td{word-break:break-word}
 th{background:var(--bg);font-weight:600;color:var(--text-2);white-space:nowrap;
- font-size:12px;text-transform:uppercase;letter-spacing:.4px}
-tbody tr:nth-child(even){background:var(--bg)}
-tbody tr:hover{background:#F4F4F5}
-.table-scroll{overflow-x:auto}
-.table-scroll table{width:auto;min-width:100%}
+  font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+tbody tr:nth-child(even){background:#FAFAFB}
+tbody tr:hover{background:#EEF2FF}
+tbody tr:last-child td{border-bottom:none}
+.table-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-input)}
+.table-scroll table{width:auto;min-width:100%;margin:0}
 .pager{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-top:1rem}
 .pager a,.pager span{padding:6px 11px;border:1px solid var(--border);border-radius:var(--radius-input);
  font-size:13px;color:var(--text-2);background:var(--surface);text-decoration:none}
@@ -125,6 +132,14 @@ form[action$="/regenerate"] button:hover{background:var(--warning-tint);box-shad
 .alert.ok{background:var(--success-tint);border-color:#A7F3D0;color:var(--success-text)}
 .alert.error{background:var(--error-tint);border-color:#FCA5A5;color:var(--error-text)}
 .alert.warn{background:var(--warning-tint);border-color:#FDE68A;color:var(--warning-text)}
+.notice{display:flex;gap:.65rem;align-items:flex-start;background:#EEF2FF;
+  border:1px solid #C7D2FE;border-radius:var(--radius-input);padding:.75rem 1rem;
+  margin:.9rem 0;font-size:13px;color:#3730A3;line-height:1.55}
+.notice .ico{flex:0 0 auto;width:18px;height:18px;border-radius:50%;background:var(--primary);
+  color:#fff;font-weight:700;font-size:12px;display:inline-flex;align-items:center;
+  justify-content:center;margin-top:1px;line-height:1}
+.notice b{font-weight:600;color:#312E81}
+.notice code{background:rgba(255,255,255,.75);color:#4338CA}
 .badge{display:inline-block;padding:.1rem .5rem;border-radius:999px;font-size:11px;font-weight:600}
 .role-superadmin{background:var(--primary);color:#fff}
 .role-operator{background:var(--ink);color:#fff}
@@ -132,7 +147,16 @@ form[action$="/regenerate"] button:hover{background:var(--warning-tint);box-shad
 .status{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:12px;font-weight:700}
 .status.up{background:var(--success-tint);color:var(--success-text)}
 .status.down{background:var(--error-tint);color:var(--error-text)}
+.status.warn{background:var(--warning-tint);color:var(--warning-text)}
 .muted{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem;margin:.3rem 0 .2rem}
+.chip{display:inline-flex;align-items:center;gap:.45rem;padding:.3rem .75rem;border-radius:999px;
+  font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--bg);color:var(--text-2)}
+.chip b{font-weight:700;font-size:13px}
+.chip.total{border-color:var(--primary);background:#EEF2FF;color:#4338CA}
+.chip.ok{background:var(--success-tint);border-color:#A7F3D0;color:var(--success-text)}
+.chip.error{background:var(--error-tint);border-color:#FCA5A5;color:var(--error-text)}
+.chip.denied{background:var(--warning-tint);border-color:#FDE68A;color:var(--warning-text)}
 body.login{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
  padding:2rem;width:100%;max-width:360px;box-shadow:var(--shadow)}
@@ -142,6 +166,9 @@ body.login{display:flex;align-items:center;justify-content:center;min-height:100
 .login-card input{width:100%}
 .login-card button{width:100%;margin-top:1.4rem;padding:12px}
 
+@media(max-width:900px){
+.dash-cols{grid-template-columns:1fr}
+}
 @media(max-width:760px){
 .shell{flex-direction:column}
 .sidebar{width:100%;flex:0 0 auto;position:static;height:auto}

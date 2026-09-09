@@ -442,6 +442,7 @@ async def dashboard(request: Request) -> Response:
         return err
     up, health = await _mcp_status()
     info = db.health_info()
+    devices = inv_manager.load_inventory_raw()
     stats = [
         ("MCP server", _status_badge(up)),
         ("Uptime (s)", esc(health.get("uptime_s", "—")) if up else "—"),
@@ -449,15 +450,56 @@ async def dashboard(request: Request) -> Response:
         ("API keys", esc(info["api_keys"])),
         ("Admin users", esc(info["users"])),
         ("Audit events", esc(info["audit_events"])),
+        ("ICX devices", esc(len(devices))),
         ("DB size", f"{info['db_size_bytes'] / 1024 / 1024:.2f} MB"),
         ("Transport", esc(os.getenv("MCP_TRANSPORT", "streamable-http"))),
-        ("Bind", f"{os.getenv('MCP_HOST', '0.0.0.0')}:{os.getenv('MCP_PORT', '8000')}"),
+        ("Bind", f"{esc(os.getenv('MCP_HOST', '0.0.0.0'))}:{esc(os.getenv('MCP_PORT', '8000'))}"),
     ]
     grid = "".join(
         f'<div class="stat"><div class="k">{k}</div><div class="v">{v}</div></div>'
         for k, v in stats
     )
-    body = f'<div class="page-head"><h2>Dashboard</h2></div><div class="stat-grid">{grid}</div>'
+
+    recent, _ = db.query_audit(limit=5, offset=0)
+    if recent:
+        trs = "".join(
+            f"<tr><td>{esc(_fmt_ts(r['ts']))}</td><td>{esc(r['client'])}</td>"
+            f"<td>{esc(r['tool'])}</td><td>{_outcome_badge(r['outcome'])}</td>"
+            f"<td>{esc(r['duration_ms'])}</td></tr>"
+            for r in recent
+        )
+        recent_html = (
+            "<div class='table-scroll'><table><tr><th>Time</th><th>Client</th><th>Tool</th>"
+            "<th>Outcome</th><th>ms</th></tr>" + trs + "</table></div>"
+        )
+    else:
+        recent_html = (
+            "<p class='muted'>No tool calls yet — connect an AI assistant and ask something "
+            "to see activity here.</p>"
+        )
+
+    quick_items = [
+        ("API Keys", "/keys", "Create or manage per-client keys"),
+        ("Inventory", "/inventory", "Add or edit network devices"),
+        ("Audit Trail", "/audit", "Browse the tool-call history"),
+        ("Configuration", "/config", "Edit .env settings"),
+    ]
+    if user["role"] == "superadmin":
+        quick_items.append(("Users", "/users", "Manage admin accounts"))
+    quick = "".join(
+        f'<li><a href="{u}"><b>{esc(n)}</b><span>{esc(d)}</span></a></li>'
+        for n, u, d in quick_items
+    )
+
+    body = (
+        '<div class="page-head"><h2>Dashboard</h2></div>'
+        f'<div class="stat-grid">{grid}</div>'
+        '<div class="dash-cols">'
+        f'<div class="card"><h3>Recent activity</h3>{recent_html}'
+        '<p class="muted"><a href="/audit">View all →</a></p></div>'
+        f'<div class="card"><h3>Quick actions</h3><ul class="quick">{quick}</ul></div>'
+        "</div>"
+    )
     return HTMLResponse(_page("Dashboard", body, user, request.query_params.get("msg", "")))
 
 
@@ -680,9 +722,10 @@ async def inventory_page(request: Request) -> Response:
             break
 
     note = (
-        "<p class='muted'>These devices are stored in the same file "
-        f"<code>inventory/devices.yaml</code> (<code>{esc(str(inv_manager.INVENTORY_PATH))}</code>) "
-        "— changes apply live, no restart needed. Passwords are never shown back.</p>"
+        "<div class='notice'><span class='ico'>i</span><span>"
+        "<b>Same file as <code>inventory/devices.yaml</code></b> — devices below are stored in "
+        f"<code>{esc(str(inv_manager.INVENTORY_PATH))}</code>. Changes apply live, no restart "
+        "needed. Passwords are never shown back.</span></div>"
     )
     body = f'<div class="page-head"><h2>Device Inventory</h2></div>{note}{table}{_inventory_form(target, user)}'
     return HTMLResponse(_page("Inventory", body, user, request.query_params.get("msg", "")))
@@ -804,6 +847,26 @@ def _pager(page: int, pages: int, client: str, tool: str, outcome: str, text: st
     return f'<div class="pager">{"".join(items)}</div>'
 
 
+def _outcome_badge(outcome: str) -> str:
+    """Return a colored status badge for an audit outcome."""
+    cls = {"ok": "up", "denied": "warn", "error": "down", "exception": "down"}.get(outcome, "")
+    return f'<span class="status {cls}">{esc(outcome)}</span>'
+
+
+def _audit_summary_chips(summary: dict[str, Any]) -> str:
+    """Render the audit summary as a row of colored chips."""
+    by = summary.get("by_outcome", {})
+    order = ["ok", "error", "denied", "exception"]
+    chips = [f'<span class="chip total">Total <b>{summary.get("total", 0)}</b></span>']
+    for key in order:
+        if key in by:
+            cls = {"ok": "ok", "error": "error", "denied": "denied", "exception": "error"}[key]
+            chips.append(f'<span class="chip {cls}">{esc(key)} <b>{by[key]}</b></span>')
+    for key in sorted(k for k in by if k not in order):
+        chips.append(f'<span class="chip">{esc(key)} <b>{by[key]}</b></span>')
+    return f'<div class="chips">{"".join(chips)}</div>'
+
+
 async def audit_page(request: Request) -> Response:
     user, err = _require(request, "viewer")
     if err:
@@ -841,13 +904,11 @@ async def audit_page(request: Request) -> Response:
         for n in _PAGE_SIZES
     )
 
-    by_outcome = " · ".join(f"{esc(k)}: {v}" for k, v in sorted(summary["by_outcome"].items()))
-    outcome_txt = f" · {by_outcome}" if by_outcome else ""
     body = (
         '<div class="page-head"><h2>Audit Trail</h2></div>'
         '<div class="card">'
-        f"<p class='muted'>Total events: {summary['total']}{outcome_txt}</p>"
-        '<form method="get" action="/audit">'
+        + _audit_summary_chips(summary)
+        + '<form method="get" action="/audit">'
         f'<label>Client</label><select name="client">{"".join(client_opts)}</select><br>'
         f'<label>Outcome</label><select name="outcome">{"".join(outcome_opts)}</select><br>'
         f'<label>Text</label><input type="text" name="text" value="{esc(text)}" placeholder="tool or client"><br>'
@@ -864,7 +925,7 @@ async def audit_page(request: Request) -> Response:
                 args_txt = args
             trs.append(
                 f"<tr><td>{esc(_fmt_ts(r['ts']))}</td><td>{esc(r['client'])}</td><td>{esc(r['client_ip'] or '')}</td>"
-                f"<td>{esc(r['tool'])}</td><td>{esc(r['outcome'])}</td><td>{esc(r['duration_ms'])}</td>"
+                f"<td>{esc(r['tool'])}</td><td>{_outcome_badge(r['outcome'])}</td><td>{esc(r['duration_ms'])}</td>"
                 f"<td>{'yes' if r['destructive'] else ''}</td><td class='muted'>{esc(args_txt[:120])}</td></tr>"
             )
         body += (
@@ -1148,26 +1209,13 @@ def _config_body(
     )
 
     env_path = BASE_DIR / ".env"
-    howto = (
-        '<details class="card"><summary>How to edit via CLI (click to show)</summary>'
-        "<p>You can also edit the file by hand. If you edit it manually while a form is open, "
-        "the GUI will ask you to reload before saving.</p>"
-        f"<p class='muted'>Your file: <code>{esc(str(env_path))}</code></p>"
-        '<ol class="howto">'
-        "<li>Open the file: <pre>nano .env</pre>"
-        "Each line is <code>NAME=value</code>; lines starting with <code>#</code> are ignored. "
-        "Save with <code>Ctrl+O</code>, <code>Enter</code>, then <code>Ctrl+X</code>.</li>"
-        "<li>Restart the server to apply (use the Restart button, or run "
-        f"<code>{esc(_restart_cmd())}</code>).</li>"
-        "</ol>"
-        "<p class='muted'>Secrets are never shown here, only set/rotated.</p></details>"
-    )
 
     body: list[str] = [
         '<div class="page-head"><h2>Configuration</h2></div>',
-        "<p class='muted'>These settings read and write the same file "
-        f"<code>.env</code> (<code>{esc(str(env_path))}</code>) — most changes apply "
-        "after you restart the MCP server. Secrets are write-only (never shown back).</p>",
+        "<div class='notice'><span class='ico'>i</span><span>"
+        "<b>Same file as <code>.env</code></b> — settings below read and write "
+        f"<code>{esc(str(env_path))}</code>. Most changes apply after you restart the MCP "
+        "server. Secrets are write-only (never shown back).</span></div>",
     ]
     if errors:
         body.append(_alert("; ".join(errors), "error"))
@@ -1223,7 +1271,6 @@ def _config_body(
         "<p class='muted'>Current values:</p>"
         + f"<div class='card'><div class='table-scroll'><table>{table}</table></div></div>"
     )
-    body.append(howto)
     return "".join(body)
 
 
