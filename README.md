@@ -110,20 +110,36 @@ This starts both processes:
 
 > In Docker, `.env` is mounted read-only. To change settings, edit `.env` on the
 > host and run `docker compose restart`. The GUI's **Config** editor and
-> **Restart** button target the [systemd deployment](deploy/systemd.md) and are
+> **Restart** button target the non-Docker deployments (systemd/native) and are
 > not used inside Docker.
 
 ### Option B — run under systemd (with GUI restart)
 
-To use the admin GUI's **Restart MCP** button, run the server as a systemd unit
-and grant the GUI's OS user permission to restart only that unit (polkit rule).
-Full setup — unit files, polkit rule, and commands — is in
+The admin GUI's **Restart MCP** button runs whatever `MCP_RESTART_CMD` says
+(default `systemctl restart mcp-ruckus`). Under systemd, grant the GUI's OS
+user permission to restart only that unit (polkit rule). Full setup — unit
+files, polkit rule, and commands — is in
 [deploy/systemd.md](deploy/systemd.md).
 
 ```bash
 sudo systemctl enable --now mcp-ruckus        # MCP server
 sudo systemctl enable --now mcp-ruckus-admin  # admin GUI (optional)
 ```
+
+### Option C — run natively on any OS (no systemd)
+
+For Linux without systemd, macOS, or Windows, use the bundled cross-platform
+launcher:
+
+```bash
+python run.py start      # launches MCP server + admin GUI in the background
+python run.py status
+```
+
+Point the GUI's restart button at it by setting
+`MCP_RESTART_CMD=python run.py restart` in `.env`. See
+[deploy/native.md](deploy/native.md) for launchd (macOS), Task Scheduler
+(Windows), and cron (Linux).
 
 > For local development (running `python3 server.py` / `python3 admin.py`
 > directly), see [CONTRIBUTING.md](.github/CONTRIBUTING.md).
@@ -255,7 +271,7 @@ All settings live in a `.env` file (copy of `.env.example`) and, for switches, a
 | `MCP_ADMIN_PORT` | Port the admin web UI listens on | `8001` |
 | `MCP_ADMIN_USER` | Default superadmin username (first boot only) | `admin` |
 | `MCP_ADMIN_INIT_PASS` | Initial superadmin password (first boot only; defaults to `digantiYA_30`, change on first login) | `digantiYA_30` |
-| `MCP_SYSTEMD_UNIT` | systemd unit name the admin GUI restarts via "Restart MCP" (systemd only) | `mcp-ruckus` |
+| `MCP_RESTART_CMD` | Command the admin GUI runs on **Restart MCP** (split like a shell command, no shell) | `systemctl restart mcp-ruckus` |
 
 > Don't worry about most of these. The minimum is `VSZ_HOST`, `VSZ_PORT`, and `VSZ_USER`/`VSZ_PASS` (or `VSZ_API_TOKEN`) — plus `MCP_API_KEY` (or a per-client key), because the endpoint requires authentication.
 
@@ -304,15 +320,16 @@ python3 admin.py        # http://localhost:8001  (default)
 On first boot it creates a default `admin` superadmin with password `digantiYA_30` (or whatever you set in `MCP_ADMIN_INIT_PASS`); you're forced to change it on first login. Roles are `superadmin`, `operator`, and `viewer`.
 
 > The admin GUI does **not** start/stop the MCP process itself. The **Config** page
-> can restart it via systemd (superadmin only) — see [deploy/systemd.md](deploy/systemd.md).
-> Otherwise restarting stays manual (systemd/Docker); the GUI just reports status.
+> can restart it by running `MCP_RESTART_CMD` (superadmin only) — see
+> [deploy/systemd.md](deploy/systemd.md) or [deploy/native.md](deploy/native.md).
+> Otherwise restarting stays manual (Docker); the GUI just reports status.
 
 ## Per-client API keys + audit trail
 
 Instead of one shared `MCP_API_KEY`, you can give **each AI assistant its own key** with its own scope. Keys live in SQLite and are managed through the **admin web UI** (see above):
 
-- **API Keys** page — create a key with a `name` (recorded in the audit log), an `allowed_tools` allowlist (empty = all tools), and an `allow_destructive` toggle (default off, blocks the 22 destructive tools).
-- **Agent-lean preset** — one click scopes a key to the curated read-only `lean.LEAN_TOOLS` set (~17 of 90 tools), ideal for AI assistants that only need search/status/summary.
+- **API Keys** page — create a key with a `name` (recorded in the audit log), a `Scope` choice (**Selected tools** or **All tools**), and an `allow_destructive` toggle (default off, blocks the 22 destructive tools). New keys default to **Selected tools** with the read-only **Most used tools** set pre-filled.
+- **Most used tools preset** — one click scopes a key to the curated read-only `lean.LEAN_TOOLS` set (~17 of 90 tools), ideal for AI assistants that only need search/status/summary.
 - The `tools/list` response is filtered to the key's scope too — a scoped key only receives the schemas for the tools it may call, cutting token/context overhead (not just blocking calls).
 - Keys take effect **immediately** — the MCP server resolves them live, no restart needed.
 - `MCP_API_KEY` still works as a fallback (treated as an unrestricted `"default"` client).
@@ -350,6 +367,7 @@ To quickly check that the server starts and responds:
 | [CHANGES.md](CHANGES.md) | Changelog + release notes |
 | [SKILL.md](SKILL.md) | AI agent skill (copy to your agent's skills dir) |
 | [deploy/systemd.md](deploy/systemd.md) | systemd deployment (units, polkit rule, GUI restart) |
+| [deploy/native.md](deploy/native.md) | cross-platform `run.py` launcher + macOS/Windows/Linux boot setup |
 
 ## License
 

@@ -51,8 +51,8 @@ h3{font-size:16px;margin:1.2rem 0 .6rem;color:var(--ink);font-weight:600}
 .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:.4rem}
 .stat .v{font-size:20px;font-weight:700;word-break:break-word;letter-spacing:-.01em}
 
-.tools{width:100%;max-width:44rem;border:1px solid var(--border);border-radius:var(--radius);
- padding:.9rem 1rem;background:var(--surface);margin:.4rem 0}
+.tools{width:100%;max-width:none;border:1px solid var(--border);border-radius:var(--radius);
+  padding:.9rem 1rem;background:var(--surface);margin:.4rem 0}
 .tool-actions{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;
  margin-bottom:.5rem;font-size:12px;color:var(--text-2)}
 #tool-filter{width:14rem;padding:6px 10px;font-size:13px;margin-left:auto}
@@ -61,7 +61,7 @@ h3{font-size:16px;margin:1.2rem 0 .6rem;color:var(--ink);font-weight:600}
  padding-bottom:.25rem;margin-bottom:.4rem}
 .tool-group summary.tool-head{cursor:pointer;user-select:none}
 .tool-head a{font-weight:400;font-size:11px;margin-left:.4rem}
-.tool-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.15rem .6rem}
+.tool-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.15rem .6rem}
 label.tool{display:flex;align-items:flex-start;gap:.4rem;min-width:0;width:auto;font-size:13px;
  margin:0;color:var(--ink);cursor:pointer}
 label.tool input{width:auto;margin-top:.18rem;accent-color:var(--primary)}
@@ -101,6 +101,9 @@ form{margin:1rem 0;display:grid;grid-template-columns:11rem minmax(0,1fr);
 form label{width:auto;padding:8px 0 0;margin:0}
 form br{display:none}
 form input[type=checkbox]{margin-top:6px}
+.scope-row{display:flex;gap:1.25rem;align-items:center;padding-top:6px}
+.scope-row label{display:inline-flex;align-items:center;gap:.4rem;padding:0}
+#tool-warn,#tool-scope{grid-column:1/-1;justify-self:stretch}
 body.login form{display:block}
 label{display:inline-block;color:var(--text-2);font-size:13px}
 input[type=text],input[type=password],input[type=number],textarea,select{font-family:var(--font);
@@ -121,6 +124,7 @@ form[action$="/regenerate"] button:hover{background:var(--warning-tint);box-shad
 .alert{padding:.6rem .9rem;border-radius:var(--radius-input);border:1px solid;margin:.75rem 0;font-size:14px}
 .alert.ok{background:var(--success-tint);border-color:#A7F3D0;color:var(--success-text)}
 .alert.error{background:var(--error-tint);border-color:#FCA5A5;color:var(--error-text)}
+.alert.warn{background:var(--warning-tint);border-color:#FDE68A;color:var(--warning-text)}
 .badge{display:inline-block;padding:.1rem .5rem;border-radius:999px;font-size:11px;font-weight:600}
 .role-superadmin{background:var(--primary);color:#fff}
 .role-operator{background:var(--ink);color:#fff}

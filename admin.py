@@ -23,6 +23,7 @@ import ipaddress
 import json
 import os
 import secrets
+import shlex
 import subprocess
 import time
 import urllib.parse
@@ -304,7 +305,8 @@ def _tool_checkboxes(selected: set[str]) -> str:
     for domain, names in groups:
         boxes = "".join(
             f'<label class="tool"><input type="checkbox" name="tool" value="{esc(n)}" '
-            f'data-g="{esc(domain)}" {"checked" if n in selected else ""}> {esc(n)}</label>'
+            f'data-g="{esc(domain)}" onchange="updateScope()" '
+            f'{"checked" if n in selected else ""}> {esc(n)}</label>'
             for n in names
         )
         open_attr = " open" if set(names) & selected else ""
@@ -319,12 +321,12 @@ def _tool_checkboxes(selected: set[str]) -> str:
         '<div class="tools"><div class="tool-actions">'
         '<a href="#" onclick="return setAll(true)">Select all</a> · '
         '<a href="#" onclick="return setAll(false)">Clear</a> · '
-        '<a href="#" onclick="return setLean()" title="Read-only tools for AI agents">Agent-lean</a>'
+        '<a href="#" onclick="return setLean()" title="Read-only tools agents use most">Most used tools</a>'
         '<input type="text" id="tool-filter" placeholder="Filter tools…" '
         'oninput="filterTools(this)">'
         '</div>'
         + "".join(blocks)
-        + f"<script>window.LEAN_TOOLS={json.dumps(sorted(LEAN_TOOLS))};</script>"
+        + f"<script>window.LEAN_TOOLS={json.dumps(sorted(LEAN_TOOLS))};updateScope();</script>"
         + "</div>"
     )
 
@@ -515,7 +517,7 @@ async def keys_page(request: Request) -> Response:
 def _key_form(target: dict[str, Any] | None, user: dict[str, Any]) -> str:
     is_edit = target is not None
     name = target["name"] if target else ""
-    selected = set(target["allowed_tools"]) if target else set()
+    selected = set(target["allowed_tools"]) if target else set(LEAN_TOOLS)
     checked = "checked" if (target and target["allow_destructive"]) else ""
     csrf = _csrf(user)
     heading = f"<h3>Edit key '{esc(name)}'</h3>" if is_edit else "<h3>Add key</h3>"
@@ -525,12 +527,24 @@ def _key_form(target: dict[str, Any] | None, user: dict[str, Any]) -> str:
         else '<label>Name</label><input type="text" name="name"><br>'
     )
     action = "/keys/update" if is_edit else "/keys"
+    scope = "all" if (target is not None and not target["allowed_tools"]) else "selected"
+    sel_checked = "checked" if scope == "selected" else ""
+    all_checked = "checked" if scope == "all" else ""
     form = (
         f"{heading}<form method='post' action='{action}'>"
         f'<input type="hidden" name="csrf" value="{csrf}">'
         f"{name_field}"
-        '<label>Allowed tools</label><br>'
+        '<label>Scope</label>'
+        '<div class="scope-row">'
+        f'<label><input type="radio" name="scope" value="selected" '
+        f'onchange="updateScope()" {sel_checked}> Selected tools</label>'
+        f'<label><input type="radio" name="scope" value="all" '
+        f'onchange="updateScope()" {all_checked}> All tools</label>'
+        '</div>'
+        '<p id="tool-warn" class="alert warn" style="display:none"></p>'
+        '<div id="tool-scope">'
         + _tool_checkboxes(selected)
+        + '</div>'
         + f'<label>Allow config</label><input type="checkbox" name="allow_destructive" {checked}><br>'
         + f"<button type='submit'>{'Save' if is_edit else 'Add'}</button></form>"
     )
@@ -563,7 +577,16 @@ async def key_add(request: Request) -> Response:
     key_input = str(form.get("key", "")).strip()
     generated = not key_input
     key = key_input or db.new_api_key()
-    tools = [str(t).strip() for t in form.getlist("tool") if str(t).strip()]
+    scope = str(form.get("scope", "selected")).strip()
+    if scope == "all":
+        tools: list[str] = []
+    else:
+        tools = [str(t).strip() for t in form.getlist("tool") if str(t).strip()]
+        if not tools:
+            return RedirectResponse(
+                "/keys?msg=" + _q("Select at least one tool, or choose 'All tools'"),
+                status_code=303,
+            )
     destructive = form.get("allow_destructive") is not None
     try:
         db.create_api_key(name, key, tools, destructive)
@@ -583,7 +606,16 @@ async def key_update(request: Request) -> Response:
     if not _check_csrf(form, user):
         return HTMLResponse(_page("Forbidden", _alert("Bad CSRF token"), user), status_code=403)
     name = str(form.get("name", "")).strip()
-    tools = [str(t).strip() for t in form.getlist("tool") if str(t).strip()]
+    scope = str(form.get("scope", "selected")).strip()
+    if scope == "all":
+        tools: list[str] = []
+    else:
+        tools = [str(t).strip() for t in form.getlist("tool") if str(t).strip()]
+        if not tools:
+            return RedirectResponse(
+                "/keys?msg=" + _q("Select at least one tool, or choose 'All tools'"),
+                status_code=303,
+            )
     destructive = form.get("allow_destructive") is not None
     db.update_api_key(name, tools, destructive)
     return RedirectResponse("/keys?msg=" + _q("Key updated: " + name), status_code=303)
@@ -1021,26 +1053,37 @@ def _validate_fields(form: Any) -> tuple[dict[str, str], list[str]]:
     return updates, errors
 
 
+def _restart_cmd() -> str:
+    """Return the command used to restart the MCP server (config-driven)."""
+    cmd = os.getenv("MCP_RESTART_CMD", "").strip()
+    if cmd:
+        return cmd
+    return f"systemctl restart {os.getenv('MCP_SYSTEMD_UNIT', 'mcp-ruckus')}"
+
+
 def _restart_mcp() -> tuple[bool, str]:
-    unit = os.getenv("MCP_SYSTEMD_UNIT", "mcp-ruckus")
+    cmd = _restart_cmd()
     try:
-        proc = subprocess.run(
-            ["systemctl", "restart", unit], capture_output=True, text=True, timeout=30
-        )
+        argv = shlex.split(cmd)
+    except ValueError as exc:
+        return False, f"invalid MCP_RESTART_CMD: {exc}"
+    if not argv:
+        return False, "MCP_RESTART_CMD is empty"
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=30)
     except FileNotFoundError:
-        return False, "systemctl not found — is this running under systemd? See deploy/systemd.md."
+        return False, f"command not found: {argv[0]}"
     except subprocess.TimeoutExpired:
         return False, "restart timed out"
     except Exception as exc:  # noqa: BLE001
         return False, str(exc)
     if proc.returncode == 0:
-        return True, f"Restart requested for service '{unit}'"
+        return True, f"Restart requested via: {cmd}"
     detail = (proc.stderr or proc.stdout or f"exit code {proc.returncode}").strip()
-    return (
-        False,
-        detail + " — install the unit and a polkit/sudo rule matching this process "
-        "user (see deploy/systemd.md).",
-    )
+    if argv[0].endswith("systemctl"):
+        detail += " — install the unit and a polkit/sudo rule matching this process "
+        "user (see deploy/systemd.md)."
+    return False, detail
 
 def _config_input(key: str, label: str, kind: str, value: str) -> str:
     if kind == "select":
@@ -1110,7 +1153,7 @@ def _config_body(
         "Each line is <code>NAME=value</code>; lines starting with <code>#</code> are ignored. "
         "Save with <code>Ctrl+O</code>, <code>Enter</code>, then <code>Ctrl+X</code>.</li>"
         "<li>Restart the server to apply (use the Restart button, or run "
-        "<code>systemctl restart mcp-ruckus</code>).</li>"
+        f"<code>{esc(_restart_cmd())}</code>).</li>"
         "</ol>"
         "<p class='muted'>Secrets are never shown here, only set/rotated.</p></details>"
     )
@@ -1155,8 +1198,7 @@ def _config_body(
         body.append(
             '<div class="card"><h3>Service</h3>'
             "<p class='muted'>After saving, restart the MCP server to apply changes. "
-            "This runs <code>systemctl restart</code> on unit "
-            f"<code>{esc(os.getenv('MCP_SYSTEMD_UNIT', 'mcp-ruckus'))}</code>.</p>"
+            f"This runs <code>{esc(_restart_cmd())}</code>.</p>"
             "<form method='post' action='/config/restart' "
             "onsubmit=\"return confirm('Restart the MCP server now?')\">"
             f'<input type="hidden" name="csrf" value="{csrf}">'

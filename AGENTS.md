@@ -20,8 +20,11 @@ python3 server.py
 # Run admin GUI (separate process — manage keys, users, inventory, audit)
 python3 admin.py
 
+# Run both natively on any OS (backgrounded; logs/ + data/*.pid)
+python run.py start|stop|restart|status
+
 # Test (mock adapters, no real hardware)
-pytest tests/ -q          # 359 tests, 19 files
+pytest tests/ -q          # 362 tests, 19 files
 
 # Lint
 ruff check .
@@ -34,6 +37,7 @@ server.py                    # FastMCP entry (streamable-http default, SSE legac
 ├── security.py              # per-client API keys, tool scope, audit trail (SQLite-backed)
 ├── db.py                    # SQLite storage (users, api_keys, audit_log) + WAL + scrypt
 ├── admin.py                 # separate web admin GUI (Starlette, port 8001)
+├── run.py                   # cross-platform launcher (stdlib): start|stop|restart|status
 ├── static/                  # admin GUI CSS + JS (served via Starlette StaticFiles)
 ├── adapters/
 │   ├── vsz.py               # vSZ async REST adapter (httpx.AsyncClient)
@@ -45,7 +49,7 @@ server.py                    # FastMCP entry (streamable-http default, SSE legac
 ├── models/ruckus.py         # ICXDevice dataclass only
 ├── inventory/               # device list + manager (devices.yaml gitignored)
 ├── docs/TOOLS.md            # full tool reference
-├── deploy/                  # systemd units + polkit rule (GUI restart)
+├── deploy/                  # systemd units + polkit rule (GUI restart) + native.md
 └── tests/                   # mock-based pytest suite
 ```
 
@@ -76,4 +80,6 @@ server.py                    # FastMCP entry (streamable-http default, SSE legac
 | `DOCS_SAFETY.md` | Destructive tools + dry-run gates |
 | `SECURITY.md` | Security policy |
 | `deploy/systemd.md` | systemd deployment (units, polkit rule, GUI restart) |
+| `deploy/native.md` | cross-platform `run.py` launcher + macOS/Windows/Linux boot setup |
+| `run.py` | stdlib-only launcher (PID files + `taskkill`/SIGTERM) |
 | `db.py` | SQLite schema + helpers (users, api_keys, audit_log) |

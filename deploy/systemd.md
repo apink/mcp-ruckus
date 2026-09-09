@@ -58,13 +58,14 @@ WantedBy=multi-user.target
 
 ## 2. Allow the admin GUI to restart the MCP unit (no password)
 
-The GUI runs `systemctl restart mcp-ruckus` directly (no shell, no sudo), so it
-needs a polkit rule granting the **OS user that runs `admin.py`** permission to
-manage **only** that unit.
+The GUI runs the command in `MCP_RESTART_CMD` directly (no shell, no sudo). By
+default that is `systemctl restart mcp-ruckus`, so it needs a polkit rule
+granting the **OS user that runs `admin.py`** permission to manage **only**
+that unit.
 
 Two things must match your setup:
 - `subject.user` → the user running the admin GUI (`mcp` here; change to your user).
-- `action.lookup("unit")` → `<MCP_SYSTEMD_UNIT>.service` (`mcp-ruckus.service` here).
+- `action.lookup("unit")` → the unit named in `MCP_RESTART_CMD` (`mcp-ruckus.service` here).
 
 `/etc/polkit-1/rules.d/50-mcp-ruckus.rules`
 
@@ -78,8 +79,8 @@ polkit.addRule(function (action, subject) {
 });
 ```
 
-> Alternative: keep `sudo` and change `MCP_SYSTEMD_UNIT` is not enough — the GUI
-> invokes `systemctl` directly. Prefer the polkit rule above.
+> Alternative: keep `sudo` and change `MCP_RESTART_CMD` is not enough — the GUI
+> invokes the command directly with no shell. Prefer the polkit rule above.
 
 ## 3. Install
 

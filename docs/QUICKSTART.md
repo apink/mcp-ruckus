@@ -43,7 +43,7 @@ docker compose up -d --build
 
 > In Docker, `.env` is mounted read-only — edit it on the host, then
 > `docker compose restart`. The GUI's **Config** editor and **Restart** button
-> target systemd and are not used inside Docker.
+> target the non-Docker deployments (systemd/native) and are not used inside Docker.
 
 **Option B — systemd** (production; enables the GUI **Restart MCP** button):
 
@@ -81,9 +81,21 @@ sudo systemctl enable --now mcp-ruckus-admin  # admin GUI (optional)
 Full unit contents, the `mcp` user setup, and the polkit rule are in
 [deploy/systemd.md](../deploy/systemd.md).
 
+**Option C — native (any OS: Linux without systemd, macOS, Windows)**:
+
+```bash
+python run.py start      # launches MCP server + admin GUI in the background
+python run.py status
+```
+
+Then set `MCP_RESTART_CMD=python run.py restart` in `.env` so the GUI's
+**Restart MCP** button works too. See [deploy/native.md](../deploy/native.md)
+for launchd (macOS), Task Scheduler (Windows), and cron (Linux).
+
 > For a quick **local/dev** run without root:
 > `python3 -m venv venv && source venv/bin/activate && pip install -e .`,
-> then `python3 server.py` and `python3 admin.py` in separate terminals.
+> then `python3 server.py` and `python3 admin.py` in separate terminals —
+> or just `python run.py start`.
 
 ## 2. Log into the admin GUI
 
@@ -109,11 +121,10 @@ only a bootstrap. Roles are:
 2. Click **Create key** and fill in:
    - **Name** — a label recorded against every tool call in the audit log
      (e.g. `hermes`, `ops-team`).
-   - **Allowed tools** — leave empty to allow all 90 tools, or tick a subset.
-     For AI assistants, use the **Agent-lean** preset (one click) to scope the
-     key to ~17 read-only tools (search/status/summary). This keeps the agent's
-     `tools/list` small — less tokens/context, and no destructive tools to
-     mis-select.
+   - **Scope** — choose **Selected tools** (default, pre-filled with the read-only
+     **Most used tools** set, ~17 tools) or **All tools** (all 90). "All tools"
+     sends every tool schema to the agent (heavy on tokens/context); keep the
+     lean set unless you need more.
    - **Allow destructive** — leave off (default); blocks the 22 destructive tools.
      These are state-changing operations (reboot an AP, disconnect clients,
      create/modify WLANs, change switch config, save config, …) — enable only

@@ -49,9 +49,9 @@ Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/swit
 ### Per-Client API Keys
 - Authentication is required by default (fail-closed): every request must carry a Bearer token; `/health` stays open for monitoring. With no keys configured, the endpoint rejects all tool calls with `401` and logs a startup warning.
 - Each AI assistant (or team) gets its own key, stored in SQLite (`data/admin.db`, gitignored) and managed via the admin GUI (`python3 admin.py`)
-- Per-key `allowed_tools` allowlist and `allow_destructive` gate (destructive tools blocked by default)
+- Per-key `allowed_tools` allowlist and `allow_destructive` gate (destructive tools blocked by default). The key form uses an explicit **Scope** choice (**Selected tools** / **All tools**) — no implicit "empty = all tools" default; new keys default to **Selected tools** with the read-only set pre-filled.
 - `tools/list` is filtered per key as well — a client only receives the schemas for tools its key may call, so scoping a key also shrinks token/context usage instead of only blocking calls
-- The key form's **Agent-lean** preset scopes a key to the curated read-only `lean.LEAN_TOOLS` set in one click
+- The key form's **Most used tools** preset scopes a key to the curated read-only `lean.LEAN_TOOLS` set in one click
 - `MCP_API_KEY` remains as a fallback single key (unrestricted `"default"` client)
 - Keys take effect immediately — the MCP server resolves them live per request (no restart)
 - New/regenerated keys are revealed once via a signed session flash, never in the URL query string
@@ -68,7 +68,7 @@ Semaphore-based concurrency control (vSZ API + ICX SSH) prevents controller/swit
 ### Admin GUI Config & Restart
 - The admin GUI's **Config** page can edit `.env` (superadmin only) and set/rotate secrets (write-only — secrets are never shown back).
 - `.env` writes are validated, written atomically with a timestamped backup, and protected against concurrent manual edits (base-hash conflict detection).
-- The **Restart MCP** button runs `systemctl restart <MCP_SYSTEMD_UNIT>` (superadmin only). Deployment should scope this with a polkit rule granting only the GUI's OS user permission to manage that single unit — see [deploy/systemd.md](deploy/systemd.md).
+- The **Restart MCP** button runs the command in `MCP_RESTART_CMD` (superadmin only), default `systemctl restart <unit>`. When using systemd, scope this with a polkit rule granting only the GUI's OS user permission to manage that single unit — see [deploy/systemd.md](deploy/systemd.md); for native runs see [deploy/native.md](deploy/native.md).
 - All admin form submissions are CSRF-protected.
 
 ## Dependencies
@@ -83,7 +83,7 @@ All dependencies are regularly updated and audited.
 
 ## Security Testing
 
-- Automated testing with pytest (359 tests, 19 test files)
+- Automated testing with pytest (362 tests, 19 test files)
 - Input validation coverage: 100%
 - Error handling verification
 - Session management testing

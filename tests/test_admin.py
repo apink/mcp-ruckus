@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import urllib.parse
 
 import pytest
 from starlette.testclient import TestClient
@@ -143,6 +144,31 @@ class TestApiKeyManagement:
         resp = client.post("/keys", data={"name": "x"}, follow_redirects=False)
         assert resp.status_code == 403
 
+    def test_scope_all_creates_full_access_key(self, operator_client):
+        page = operator_client.get("/keys").text
+        csrf = _csrf_from(page)
+        resp = operator_client.post(
+            "/keys",
+            data={"csrf": csrf, "name": "full", "scope": "all"},
+            follow_redirects=False,
+        )
+        assert resp.status_code in (302, 303)
+        key = db.get_api_key_by_name("full")
+        assert key is not None
+        assert key["allowed_tools"] == []
+
+    def test_scope_selected_with_no_tools_rejected(self, operator_client):
+        page = operator_client.get("/keys").text
+        csrf = _csrf_from(page)
+        resp = operator_client.post(
+            "/keys",
+            data={"csrf": csrf, "name": "empty", "scope": "selected"},
+            follow_redirects=False,
+        )
+        assert resp.status_code in (302, 303)
+        assert "Select at least one tool" in urllib.parse.unquote(resp.headers["location"])
+        assert db.get_api_key_by_name("empty") is None
+
     def test_key_reveal_not_in_url(self, operator_client):
         page = operator_client.get("/keys").text
         csrf = _csrf_from(page)
@@ -278,6 +304,28 @@ class TestConfig:
         )
         assert resp.status_code in (302, 303)
         assert calls["args"] == ["systemctl", "restart", "mcp-ruckus"]
+
+    def test_restart_uses_custom_command(self, superadmin_client, monkeypatch):
+        monkeypatch.setenv("MCP_RESTART_CMD", "python run.py restart")
+        calls: dict = {}
+
+        class _Proc:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        def fake_run(args, **kwargs):
+            calls["args"] = args
+            return _Proc()
+
+        monkeypatch.setattr(admin.subprocess, "run", fake_run)
+        page = superadmin_client.get("/config").text
+        csrf = _csrf_from(page)
+        resp = superadmin_client.post(
+            "/config/restart", data={"csrf": csrf}, follow_redirects=False
+        )
+        assert resp.status_code in (302, 303)
+        assert calls["args"] == ["python", "run.py", "restart"]
 
     def test_save_write_failure_is_graceful(self, superadmin_client, monkeypatch, tmp_path):
         self._isolate_env(monkeypatch, tmp_path)
